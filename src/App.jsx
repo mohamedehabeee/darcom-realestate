@@ -18,6 +18,7 @@ import {
 import IntroScreen from './components/IntroScreen';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import VideoShowcaseSection from './components/VideoShowcaseSection';
 import FilterBar from './components/FilterBar';
 import UnitCard from './components/UnitCard';
 import LocationsSection from './components/LocationsSection';
@@ -189,6 +190,8 @@ export default function App() {
                 listingsRef.current?.scrollIntoView({ behavior: 'smooth' })
               }
             />
+
+            <VideoShowcaseSection />
 
             <section ref={listingsRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
