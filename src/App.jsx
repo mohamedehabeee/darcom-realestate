@@ -23,6 +23,7 @@ import FilterBar from './components/FilterBar';
 import UnitCard from './components/UnitCard';
 import LocationsSection from './components/LocationsSection';
 import WhyDarcomSection from './components/WhyDarcomSection';
+import FeaturedSliderSection from './components/FeaturedSliderSection';
 import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
@@ -234,6 +235,7 @@ export default function App() {
 
             <LocationsSection units={units} onSelectCity={handleSelectCity} />
             <WhyDarcomSection />
+            <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
           </>
         )}
 
