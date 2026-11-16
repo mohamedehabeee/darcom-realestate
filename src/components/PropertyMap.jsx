@@ -15,11 +15,11 @@ const CITY_COORDS = {
 const TILE_LAYERS = {
   street: {
     label: 'Street',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   },
   dark: {
     label: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   },
   satellite: {
     label: 'Satellite',
@@ -66,7 +66,7 @@ export default function PropertyMap({ units, onSelectUnit }) {
     });
 
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.street.url, {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
     markersLayerRef.current = L.layerGroup().addTo(map);
@@ -85,7 +85,7 @@ export default function PropertyMap({ units, onSelectUnit }) {
       map.removeLayer(tileLayerRef.current);
     }
     tileLayerRef.current = L.tileLayer(TILE_LAYERS[tileStyle].url, {
-      attribution: '&copy; OpenStreetMap',
+      attribution: '&copy; OpenStreetMap &amp; Esri',
     }).addTo(map);
   }, [tileStyle]);
 
