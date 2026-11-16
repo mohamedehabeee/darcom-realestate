@@ -29,6 +29,7 @@ import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
 import AuthModal from './components/AuthModal';
+import AccountModal from './components/AccountModal';
 import SavedUnits from './pages/SavedUnits';
 import AdminDashboard from './pages/AdminDashboard';
 import Footer from './components/Footer';
@@ -63,6 +64,7 @@ export default function App() {
   const [showCompare, setShowCompare] = useState(false);
   const [showAuth, setShowAuth] = useState(() => isRecoveryUrl());
   const [authMode, setAuthMode] = useState(() => (isRecoveryUrl() ? 'reset' : 'login'));
+  const [showAccount, setShowAccount] = useState(false);
 
   const listingsRef = useRef(null);
 
@@ -223,6 +225,7 @@ export default function App() {
           setAuthMode('login');
           setShowAuth(true);
         }}
+        onOpenAccount={() => setShowAccount(true)}
         onLogout={handleLogout}
       />
 
@@ -359,6 +362,16 @@ export default function App() {
               window.history.replaceState({}, '', '/');
             }
           }}
+        />
+      )}
+
+      {showAccount && currentUser && (
+        <AccountModal
+          currentUser={currentUser}
+          savedCount={savedIds.length}
+          onUpdateUser={(updated) => setCurrentUser(updated)}
+          onLogout={handleLogout}
+          onClose={() => setShowAccount(false)}
         />
       )}
     </div>

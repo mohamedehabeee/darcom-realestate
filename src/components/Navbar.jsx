@@ -10,6 +10,7 @@ export default function Navbar({
   onToggleDark,
   currentUser,
   onOpenAuth,
+  onOpenAccount,
   onLogout,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -101,10 +102,14 @@ export default function Navbar({
 
           {currentUser ? (
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 border border-black/15 dark:border-white/15 text-[#111111] dark:text-white">
+              <button
+                onClick={onOpenAccount}
+                title="My Account"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-2 border border-black/15 dark:border-white/15 text-[#111111] dark:text-white hover:border-[#C59B27] transition-colors cursor-pointer"
+              >
                 <User className="w-3.5 h-3.5 text-[#C59B27]" />
-                {currentUser.name}
-              </span>
+                <span className="hidden sm:inline">{currentUser.name}</span>
+              </button>
               <button
                 onClick={onLogout}
                 title="Logout"
@@ -171,6 +176,18 @@ export default function Navbar({
               </span>
             )}
           </button>
+          {currentUser && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenAccount();
+              }}
+              className="inline-flex items-center gap-2 text-sm font-medium py-1.5 text-[#111111] dark:text-white hover:text-[#C59B27]"
+            >
+              <User className="w-4 h-4 text-[#C59B27]" />
+              <span>My Account ({currentUser.name})</span>
+            </button>
+          )}
           {currentUser?.role === 'admin' && (
             <button
               onClick={() => handleNav('admin')}

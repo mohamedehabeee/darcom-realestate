@@ -255,6 +255,14 @@ export async function updateUserPassword(newPassword) {
   if (error) throw error;
 }
 
+export async function updateUserProfile({ name }) {
+  const { data, error } = await supabase.auth.updateUser({
+    data: { name: name.trim() },
+  });
+  if (error) throw error;
+  return formatUser(data.user);
+}
+
 export async function logoutUser() {
   await supabase.auth.signOut();
 }
