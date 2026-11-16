@@ -20,6 +20,8 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import FilterBar from './components/FilterBar';
 import UnitCard from './components/UnitCard';
+import LocationsSection from './components/LocationsSection';
+import WhyDarcomSection from './components/WhyDarcomSection';
 import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
@@ -93,6 +95,11 @@ export default function App() {
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSelectCity = (cityName) => {
+    setFilters({ ...DEFAULT_FILTERS, city: cityName });
+    listingsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleToggleSave = (id) => {
@@ -221,6 +228,9 @@ export default function App() {
                 </div>
               )}
             </section>
+
+            <LocationsSection units={units} onSelectCity={handleSelectCity} />
+            <WhyDarcomSection />
           </>
         )}
 
