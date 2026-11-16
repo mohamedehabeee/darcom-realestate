@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutGrid, Map as MapIcon } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import {
   getUnits,
@@ -22,6 +23,7 @@ import Hero from './components/Hero';
 import VideoShowcaseSection from './components/VideoShowcaseSection';
 import FilterBar from './components/FilterBar';
 import UnitCard from './components/UnitCard';
+import PropertyMap from './components/PropertyMap';
 import LocationsSection from './components/LocationsSection';
 import WhyDarcomSection from './components/WhyDarcomSection';
 import FeaturedSliderSection from './components/FeaturedSliderSection';
@@ -51,6 +53,7 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(() => !isRecoveryUrl());
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState('home');
+  const [listingLayout, setListingLayout] = useState('grid');
 
   const [units, setUnits] = useState([]);
   const [savedIds, setSavedIds] = useState(() => getSavedIds());
@@ -250,6 +253,32 @@ export default function App() {
                     Available Properties ({filteredUnits.length})
                   </h2>
                 </div>
+
+                {/* Grid / Map Toggle */}
+                <div className="flex border border-black/15 dark:border-white/15 text-xs font-semibold">
+                  <button
+                    onClick={() => setListingLayout('grid')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
+                      listingLayout === 'grid'
+                        ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
+                        : 'text-[#111111]/70 dark:text-white/70'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Grid</span>
+                  </button>
+                  <button
+                    onClick={() => setListingLayout('map')}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
+                      listingLayout === 'map'
+                        ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
+                        : 'text-[#111111]/70 dark:text-white/70'
+                    }`}
+                  >
+                    <MapIcon className="w-3.5 h-3.5" />
+                    <span>Map</span>
+                  </button>
+                </div>
               </div>
 
               <FilterBar
@@ -262,6 +291,8 @@ export default function App() {
                 <div className="py-16 text-center border border-black/10 dark:border-white/10 bg-white dark:bg-[#161616] text-sm text-[#111111]/60 dark:text-white/60">
                   No properties match your selected filters.
                 </div>
+              ) : listingLayout === 'map' ? (
+                <PropertyMap units={filteredUnits} onSelectUnit={setSelectedUnit} />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredUnits.map((unit) => (
