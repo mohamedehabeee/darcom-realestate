@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from './services/supabaseClient';
 import {
   getUnits,
   addUnit,
@@ -57,6 +58,7 @@ export default function App() {
   const [bookingUnit, setBookingUnit] = useState(null);
   const [showCompare, setShowCompare] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
 
   const listingsRef = useRef(null);
 
@@ -75,6 +77,17 @@ export default function App() {
       }
     }
     loadInitialData();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('reset');
+        setShowAuth(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const filteredUnits = useMemo(() => {
@@ -201,7 +214,10 @@ export default function App() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((prev) => !prev)}
         currentUser={currentUser}
-        onOpenAuth={() => setShowAuth(true)}
+        onOpenAuth={() => {
+          setAuthMode('login');
+          setShowAuth(true);
+        }}
         onLogout={handleLogout}
       />
 
@@ -323,6 +339,7 @@ export default function App() {
 
       {showAuth && (
         <AuthModal
+          initialMode={authMode}
           onSuccess={async (user) => {
             setCurrentUser(user);
             setShowAuth(false);

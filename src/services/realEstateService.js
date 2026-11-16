@@ -243,6 +243,18 @@ export async function loginUser({ email, password }) {
   return formatUser(data.user);
 }
 
+export async function sendPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw error;
+}
+
+export async function updateUserPassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}
+
 export async function logoutUser() {
   await supabase.auth.signOut();
 }
