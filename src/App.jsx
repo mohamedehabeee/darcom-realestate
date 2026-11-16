@@ -46,11 +46,11 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState('home');
 
-  const [units, setUnits] = useState(() => getUnits());
+  const [units, setUnits] = useState([]);
   const [savedIds, setSavedIds] = useState(() => getSavedIds());
   const [compareIds, setCompareIds] = useState([]);
-  const [bookings, setBookings] = useState(() => getBookings());
-  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  const [bookings, setBookings] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -63,6 +63,19 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    async function loadInitialData() {
+      const [loadedUnits, user] = await Promise.all([getUnits(), getCurrentUser()]);
+      setUnits(loadedUnits);
+      setCurrentUser(user);
+      if (user?.role === 'admin') {
+        const loadedBookings = await getBookings();
+        setBookings(loadedBookings);
+      }
+    }
+    loadInitialData();
+  }, []);
 
   const filteredUnits = useMemo(() => {
     const list = units.filter((u) => {
@@ -125,43 +138,52 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddUnit = (unitData) => {
-    addUnit(unitData);
-    setUnits(getUnits());
+  const handleAddUnit = async (unitData) => {
+    const updated = await addUnit(unitData);
+    setUnits(updated);
   };
 
-  const handleUpdateUnit = (id, updatedData) => {
-    setUnits(updateUnit(id, updatedData));
+  const handleUpdateUnit = async (id, updatedData) => {
+    const updated = await updateUnit(id, updatedData);
+    setUnits(updated);
   };
 
-  const handleUpdateUnitStatus = (id, status) => {
-    setUnits(updateUnitStatus(id, status));
+  const handleUpdateUnitStatus = async (id, status) => {
+    const updated = await updateUnitStatus(id, status);
+    setUnits(updated);
   };
 
-  const handleDeleteUnit = (id) => {
-    setUnits(deleteUnit(id));
+  const handleDeleteUnit = async (id) => {
+    const updated = await deleteUnit(id);
+    setUnits(updated);
   };
 
-  const handleResetUnits = () => {
-    setUnits(resetUnits());
+  const handleResetUnits = async () => {
+    const updated = await resetUnits();
+    setUnits(updated);
   };
 
-  const handleCreateBooking = (bookingData) => {
-    createBooking(bookingData);
-    setBookings(getBookings());
+  const handleCreateBooking = async (bookingData) => {
+    await createBooking(bookingData);
+    if (currentUser?.role === 'admin') {
+      setBookings(await getBookings());
+    }
   };
 
-  const handleUpdateBookingStatus = (id, status) => {
-    setBookings(updateBookingStatus(id, status));
+  const handleUpdateBookingStatus = async (id, status) => {
+    const updated = await updateBookingStatus(id, status);
+    setBookings(updated);
   };
 
-  const handleDeleteBooking = (id) => {
-    setBookings(deleteBooking(id));
+  const handleDeleteBooking = async (id) => {
+    const updated = await deleteBooking(id);
+    setBookings(updated);
   };
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
+    setBookings([]);
     if (activeView === 'admin') {
       setActiveView('home');
     }
@@ -301,10 +323,11 @@ export default function App() {
 
       {showAuth && (
         <AuthModal
-          onSuccess={(user) => {
+          onSuccess={async (user) => {
             setCurrentUser(user);
             setShowAuth(false);
-            if (user.role === 'admin') {
+            if (user?.role === 'admin') {
+              setBookings(await getBookings());
               setActiveView('admin');
             }
           }}

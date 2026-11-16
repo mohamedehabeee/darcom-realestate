@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check, Clock, Pencil, X, RotateCcw, Upload } from 'lucide-react';
+import { uploadPropertyImage } from '../services/realEstateService';
 
 const EMPTY_FORM = {
   title: '',
@@ -16,28 +17,6 @@ const EMPTY_FORM = {
   image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
 };
 
-function compressImageFile(file, maxWidth = 1000, quality = 0.8) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image file.'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Invalid image file.'));
-      img.onload = () => {
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function AdminDashboard({
   units,
   bookings,
@@ -52,6 +31,8 @@ export default function AdminDashboard({
   const [tab, setTab] = useState('units');
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
   const inputStyle =
@@ -65,11 +46,14 @@ export default function AdminDashboard({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadError('');
+    setUploading(true);
     try {
-      const dataUrl = await compressImageFile(file);
-      setForm((prev) => ({ ...prev, image: dataUrl }));
+      const publicUrl = await uploadPropertyImage(file);
+      setForm((prev) => ({ ...prev, image: publicUrl }));
     } catch (err) {
-      setUploadError(err.message);
+      setUploadError(err.message || 'Image upload failed.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -99,28 +83,35 @@ export default function AdminDashboard({
     setForm(EMPTY_FORM);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...form,
-      price: Number(form.price),
-      area: Number(form.area),
-      bedrooms: Number(form.bedrooms),
-      bathrooms: Number(form.bathrooms),
-      delivery: 'Ready to Move',
-      downPaymentPercent: form.purpose === 'Buy' ? 15 : 0,
-      installmentYears: form.purpose === 'Buy' ? 7 : 1,
-      description: `${form.type} in ${form.compound}, ${form.city}.`,
-    };
-
-    if (editingId) {
-      onUpdateUnit(editingId, payload);
-      setEditingId(null);
-    } else {
-      onAddUnit(payload);
-    }
+    setSaving(true);
     setUploadError('');
-    setForm(EMPTY_FORM);
+    try {
+      const payload = {
+        ...form,
+        price: Number(form.price),
+        area: Number(form.area),
+        bedrooms: Number(form.bedrooms),
+        bathrooms: Number(form.bathrooms),
+        delivery: 'Ready to Move',
+        downPaymentPercent: form.purpose === 'Buy' ? 15 : 0,
+        installmentYears: form.purpose === 'Buy' ? 7 : 1,
+        description: `${form.type} in ${form.compound}, ${form.city}.`,
+      };
+
+      if (editingId) {
+        await onUpdateUnit(editingId, payload);
+        setEditingId(null);
+      } else {
+        await onAddUnit(payload);
+      }
+      setForm(EMPTY_FORM);
+    } catch (err) {
+      setUploadError(err.message || 'Could not save property.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -137,11 +128,11 @@ export default function AdminDashboard({
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={onResetUnits}
-              title="Restore default 12 properties"
+              title="Seed / restore default 12 properties in Supabase"
               className="inline-flex items-center gap-1.5 px-3 py-2 border border-black/15 text-xs font-medium text-[#111111] hover:border-[#C59B27] transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-[#C59B27]" />
-              <span>Reset Data</span>
+              <span>Reset / Seed Data</span>
             </button>
 
             <div className="flex border border-black/15 text-xs font-semibold">
@@ -322,7 +313,7 @@ export default function AdminDashboard({
                   <option value="Exclusive">Badge: Exclusive</option>
                 </select>
 
-                {/* Image URL + Device Upload + Preview */}
+                {/* Image URL + Supabase Storage Upload */}
                 <div className="sm:col-span-2 flex items-center gap-2">
                   {form.image && (
                     <img
@@ -340,10 +331,11 @@ export default function AdminDashboard({
                   />
                   <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 border border-black/20 bg-white text-xs font-semibold text-[#111111] hover:border-[#C59B27] cursor-pointer">
                     <Upload className="w-3.5 h-3.5 text-[#C59B27]" />
-                    <span>Upload</span>
+                    <span>{uploading ? 'Uploading...' : 'Upload'}</span>
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={uploading}
                       onChange={handleFileChange}
                       className="hidden"
                     />
@@ -352,15 +344,14 @@ export default function AdminDashboard({
 
                 <button
                   type="submit"
-                  className="lg:col-span-4 py-2.5 px-4 bg-[#111111] text-white text-sm font-semibold hover:bg-[#C59B27] hover:text-[#111111] transition-colors cursor-pointer"
+                  disabled={saving || uploading}
+                  className="lg:col-span-4 py-2.5 px-4 bg-[#111111] text-white text-sm font-semibold hover:bg-[#C59B27] hover:text-[#111111] disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  {editingId ? 'Save Changes' : 'Add Property'}
+                  {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Property'}
                 </button>
               </div>
 
-              {uploadError && (
-                <p className="text-xs text-red-600">{uploadError}</p>
-              )}
+              {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
             </form>
 
             <div className="overflow-x-auto">

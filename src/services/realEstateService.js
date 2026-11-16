@@ -1,188 +1,248 @@
+import { supabase } from './supabaseClient';
 import { MOCK_UNITS } from '../data/mockUnits';
 
-const KEYS = {
-  UNITS: 'darcom_units_v2',
-  SAVED: 'darcom_saved_v1',
-  BOOKINGS: 'darcom_bookings_v1',
-  USERS: 'darcom_users_v1',
-  SESSION: 'darcom_session_v1',
-};
-
+const SAVED_KEY = 'darcom_saved_v1';
 const ADMIN_EMAIL = 'admin@darcom.eg';
-const ADMIN_PASS = 'DarCom@2026';
 
-function readStorage(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
+function mapUnitFromDb(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    city: row.city,
+    compound: row.compound,
+    type: row.type,
+    purpose: row.purpose,
+    price: Number(row.price),
+    area: Number(row.area),
+    bedrooms: Number(row.bedrooms ?? 0),
+    bathrooms: Number(row.bathrooms ?? 1),
+    delivery: row.delivery || 'Ready to Move',
+    status: row.status || 'Available',
+    badge: row.badge || '',
+    downPaymentPercent: Number(row.down_payment_percent ?? 15),
+    installmentYears: Number(row.installment_years ?? 7),
+    image: row.image,
+    gallery: Array.isArray(row.gallery) && row.gallery.length ? row.gallery : [row.image],
+    features: Array.isArray(row.features) ? row.features : ['24/7 Security', 'Parking'],
+    description: row.description || '',
+  };
 }
 
-function writeStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+function mapUnitToDb(unit) {
+  return {
+    title: unit.title,
+    city: unit.city,
+    compound: unit.compound,
+    type: unit.type,
+    purpose: unit.purpose,
+    price: Number(unit.price),
+    area: Number(unit.area),
+    bedrooms: Number(unit.bedrooms ?? 0),
+    bathrooms: Number(unit.bathrooms ?? 1),
+    delivery: unit.delivery || 'Ready to Move',
+    status: unit.status || 'Available',
+    badge: unit.badge || '',
+    down_payment_percent: Number(unit.downPaymentPercent ?? 15),
+    installment_years: Number(unit.installmentYears ?? 7),
+    image: unit.image,
+    gallery: unit.gallery?.length ? unit.gallery : [unit.image],
+    features: unit.features?.length ? unit.features : ['24/7 Security', 'Parking'],
+    description: unit.description || '',
+  };
 }
 
 // Units CRUD
-export function getUnits() {
-  const stored = readStorage(KEYS.UNITS, null);
-  if (!stored || stored.length === 0) {
-    writeStorage(KEYS.UNITS, MOCK_UNITS);
+export async function getUnits() {
+  const { data, error } = await supabase
+    .from('units')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching units:', error);
     return MOCK_UNITS;
   }
-  return stored;
+  if (!data || data.length === 0) {
+    return MOCK_UNITS;
+  }
+  return data.map(mapUnitFromDb);
 }
 
-export function addUnit(unitData) {
-  const units = getUnits();
-  const newUnit = {
-    ...unitData,
-    id: `unit-${Date.now()}`,
-    status: unitData.status || 'Available',
-    gallery: unitData.gallery?.length ? unitData.gallery : [unitData.image],
-    features: unitData.features?.length ? unitData.features : ['24/7 Security', 'Parking'],
-  };
-  const updated = [newUnit, ...units];
-  writeStorage(KEYS.UNITS, updated);
-  return newUnit;
+export async function addUnit(unitData) {
+  const { error } = await supabase.from('units').insert([mapUnitToDb(unitData)]);
+  if (error) throw error;
+  return getUnits();
 }
 
-export function updateUnit(unitId, updatedData) {
-  const units = getUnits();
-  const updated = units.map((u) =>
-    u.id === unitId
-      ? {
-          ...u,
-          ...updatedData,
-          gallery: updatedData.image ? [updatedData.image, ...(u.gallery?.slice(1) || [])] : u.gallery,
-        }
-      : u
-  );
-  writeStorage(KEYS.UNITS, updated);
-  return updated;
+export async function updateUnit(unitId, updatedData) {
+  const payload = {};
+  if (updatedData.title !== undefined) payload.title = updatedData.title;
+  if (updatedData.city !== undefined) payload.city = updatedData.city;
+  if (updatedData.compound !== undefined) payload.compound = updatedData.compound;
+  if (updatedData.type !== undefined) payload.type = updatedData.type;
+  if (updatedData.purpose !== undefined) payload.purpose = updatedData.purpose;
+  if (updatedData.price !== undefined) payload.price = Number(updatedData.price);
+  if (updatedData.area !== undefined) payload.area = Number(updatedData.area);
+  if (updatedData.bedrooms !== undefined) payload.bedrooms = Number(updatedData.bedrooms);
+  if (updatedData.bathrooms !== undefined) payload.bathrooms = Number(updatedData.bathrooms);
+  if (updatedData.status !== undefined) payload.status = updatedData.status;
+  if (updatedData.badge !== undefined) payload.badge = updatedData.badge;
+  if (updatedData.image !== undefined) {
+    payload.image = updatedData.image;
+    payload.gallery = [updatedData.image];
+  }
+  if (updatedData.description !== undefined) payload.description = updatedData.description;
+
+  const { error } = await supabase.from('units').update(payload).eq('id', unitId);
+  if (error) throw error;
+  return getUnits();
 }
 
-export function updateUnitStatus(unitId, status) {
-  const units = getUnits();
-  const updated = units.map((u) => (u.id === unitId ? { ...u, status } : u));
-  writeStorage(KEYS.UNITS, updated);
-  return updated;
+export async function updateUnitStatus(unitId, status) {
+  const { error } = await supabase.from('units').update({ status }).eq('id', unitId);
+  if (error) throw error;
+  return getUnits();
 }
 
-export function deleteUnit(unitId) {
-  const units = getUnits();
-  const updated = units.filter((u) => u.id !== unitId);
-  writeStorage(KEYS.UNITS, updated);
-  return updated;
+export async function deleteUnit(unitId) {
+  const { error } = await supabase.from('units').delete().eq('id', unitId);
+  if (error) throw error;
+  return getUnits();
 }
 
-export function resetUnits() {
-  writeStorage(KEYS.UNITS, MOCK_UNITS);
-  return MOCK_UNITS;
+export async function resetUnits() {
+  await supabase.from('units').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  const rows = MOCK_UNITS.map(mapUnitToDb);
+  const { error } = await supabase.from('units').insert(rows);
+  if (error) throw error;
+  return getUnits();
 }
 
-// Saved / Favorites
+// Storage Image Upload
+export async function uploadPropertyImage(file) {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const fileName = `unit-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('property-images')
+    .upload(fileName, file, { upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from('property-images').getPublicUrl(fileName);
+  return data.publicUrl;
+}
+
+// Saved / Favorites (per browser)
 export function getSavedIds() {
-  return readStorage(KEYS.SAVED, []);
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function toggleSavedId(unitId) {
   const current = getSavedIds();
   const exists = current.includes(unitId);
   const updated = exists ? current.filter((id) => id !== unitId) : [...current, unitId];
-  writeStorage(KEYS.SAVED, updated);
+  localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
   return updated;
 }
 
 // Viewing Bookings
-export function getBookings() {
-  return readStorage(KEYS.BOOKINGS, []);
+export async function getBookings() {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return data.map((b) => ({
+    id: b.id,
+    unitId: b.unit_id,
+    unitTitle: b.unit_title,
+    name: b.name,
+    phone: b.phone,
+    date: b.preferred_date,
+    notes: b.notes || '',
+    status: b.status || 'Pending',
+  }));
 }
 
-export function createBooking(booking) {
-  const bookings = getBookings();
-  const newBooking = {
-    ...booking,
-    id: `bk-${Date.now()}`,
-    status: 'Pending',
-    createdAt: new Date().toISOString(),
+export async function createBooking(booking) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    booking.unitId || ''
+  );
+
+  const { error } = await supabase.from('bookings').insert([
+    {
+      unit_id: isUuid ? booking.unitId : null,
+      unit_title: booking.unitTitle,
+      name: booking.name,
+      phone: booking.phone,
+      preferred_date: booking.date,
+      notes: booking.notes || '',
+      status: 'Pending',
+    },
+  ]);
+  if (error) throw error;
+}
+
+export async function updateBookingStatus(bookingId, status) {
+  const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId);
+  if (error) throw error;
+  return getBookings();
+}
+
+export async function deleteBooking(bookingId) {
+  const { error } = await supabase.from('bookings').delete().eq('id', bookingId);
+  if (error) throw error;
+  return getBookings();
+}
+
+// Authentication (Supabase Auth)
+function formatUser(user) {
+  if (!user) return null;
+  const email = (user.email || '').toLowerCase();
+  return {
+    id: user.id,
+    name: user.user_metadata?.name || (email === ADMIN_EMAIL ? 'Admin' : email.split('@')[0]),
+    email,
+    role: email === ADMIN_EMAIL ? 'admin' : 'buyer',
   };
-  const updated = [newBooking, ...bookings];
-  writeStorage(KEYS.BOOKINGS, updated);
-  return newBooking;
 }
 
-export function updateBookingStatus(bookingId, status) {
-  const bookings = getBookings();
-  const updated = bookings.map((b) => (b.id === bookingId ? { ...b, status } : b));
-  writeStorage(KEYS.BOOKINGS, updated);
-  return updated;
+export async function getCurrentUser() {
+  const { data } = await supabase.auth.getUser();
+  return formatUser(data?.user);
 }
 
-export function deleteBooking(bookingId) {
-  const bookings = getBookings();
-  const updated = bookings.filter((b) => b.id !== bookingId);
-  writeStorage(KEYS.BOOKINGS, updated);
-  return updated;
-}
-
-// Authentication
-export function getCurrentUser() {
-  return readStorage(KEYS.SESSION, null);
-}
-
-export function registerUser({ name, email, password }) {
+export async function registerUser({ name, email, password }) {
   const cleanEmail = email.trim().toLowerCase();
   if (cleanEmail === ADMIN_EMAIL) {
     throw new Error('This email is reserved.');
   }
 
-  const users = readStorage(KEYS.USERS, []);
-  const exists = users.some((u) => u.email.toLowerCase() === cleanEmail);
-  if (exists) {
-    throw new Error('An account with this email already exists.');
-  }
-
-  const newUser = {
-    id: `usr-${Date.now()}`,
-    name: name.trim(),
+  const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
-    role: 'buyer',
-  };
-  writeStorage(KEYS.USERS, [...users, newUser]);
-  const session = { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role };
-  writeStorage(KEYS.SESSION, session);
-  return session;
+    options: { data: { name: name.trim() } },
+  });
+  if (error) throw error;
+  return formatUser(data.user);
 }
 
-export function loginUser({ email, password }) {
-  const cleanEmail = email.trim().toLowerCase();
-
-  if (cleanEmail === ADMIN_EMAIL && password === ADMIN_PASS) {
-    const adminSession = {
-      id: 'admin-01',
-      name: 'Admin',
-      email: ADMIN_EMAIL,
-      role: 'admin',
-    };
-    writeStorage(KEYS.SESSION, adminSession);
-    return adminSession;
-  }
-
-  const users = readStorage(KEYS.USERS, []);
-  const found = users.find(
-    (u) => u.email.toLowerCase() === cleanEmail && u.password === password
-  );
-  if (!found) {
-    throw new Error('Invalid email or password.');
-  }
-  const session = { id: found.id, name: found.name, email: found.email, role: found.role };
-  writeStorage(KEYS.SESSION, session);
-  return session;
+export async function loginUser({ email, password }) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error) throw error;
+  return formatUser(data.user);
 }
 
-export function logoutUser() {
-  localStorage.removeItem(KEYS.SESSION);
+export async function logoutUser() {
+  await supabase.auth.signOut();
 }

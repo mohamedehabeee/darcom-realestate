@@ -8,27 +8,31 @@ export default function AuthModal({ onSuccess, onClose }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const inputStyle =
     'w-full px-3 py-2.5 text-sm bg-white dark:bg-[#111111] border border-black/15 dark:border-white/15 text-[#111111] dark:text-white focus:outline-none focus:border-[#C59B27]';
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       const user =
         mode === 'login'
-          ? loginUser({ email, password })
-          : registerUser({ name, email, password });
+          ? await loginUser({ email, password })
+          : await registerUser({ name, email, password });
       onSuccess(user);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Authentication failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-md w-full p-6">
+      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-md w-full p-6 animate-modal-in">
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
@@ -125,9 +129,10 @@ export default function AuthModal({ onSuccess, onClose }) {
 
           <button
             type="submit"
-            className="w-full py-3 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+            disabled={loading}
+            className="w-full py-3 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
           >
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
+            {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
       </div>
