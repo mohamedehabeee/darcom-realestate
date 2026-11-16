@@ -42,8 +42,12 @@ const DEFAULT_FILTERS = {
   sort: 'default',
 };
 
+const isRecoveryUrl = () =>
+  window.location.hash.includes('type=recovery') ||
+  window.location.search.includes('type=recovery');
+
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(() => !isRecoveryUrl());
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState('home');
 
@@ -57,8 +61,8 @@ export default function App() {
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [bookingUnit, setBookingUnit] = useState(null);
   const [showCompare, setShowCompare] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState('login');
+  const [showAuth, setShowAuth] = useState(() => isRecoveryUrl());
+  const [authMode, setAuthMode] = useState(() => (isRecoveryUrl() ? 'reset' : 'login'));
 
   const listingsRef = useRef(null);
 
@@ -82,6 +86,7 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        setShowIntro(false);
         setAuthMode('reset');
         setShowAuth(true);
       }
@@ -348,7 +353,12 @@ export default function App() {
               setActiveView('admin');
             }
           }}
-          onClose={() => setShowAuth(false)}
+          onClose={() => {
+            setShowAuth(false);
+            if (isRecoveryUrl()) {
+              window.history.replaceState({}, '', '/');
+            }
+          }}
         />
       )}
     </div>
