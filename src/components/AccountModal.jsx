@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { X, User, Lock, CheckCircle2, LogOut } from 'lucide-react';
 import { updateUserPassword, updateUserProfile } from '../services/realEstateService';
 
+const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
+
 export default function AccountModal({
   currentUser,
   savedCount,
@@ -10,6 +12,7 @@ export default function AccountModal({
   onClose,
 }) {
   const [name, setName] = useState(currentUser?.name || '');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -20,15 +23,21 @@ export default function AccountModal({
   const inputStyle =
     'w-full px-3 py-2.5 text-sm bg-white dark:bg-[#111111] border border-black/15 dark:border-white/15 text-[#111111] dark:text-white focus:outline-none focus:border-[#C59B27]';
 
-  const handleSaveName = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (phone.trim() && !EGYPT_PHONE_REGEX.test(phone.trim())) {
+      setError('Please enter a valid 11-digit Egyptian mobile number (e.g. 010xxxxxxxx).');
+      return;
+    }
+
     setSavingProfile(true);
     try {
-      const updated = await updateUserProfile({ name });
+      const updated = await updateUserProfile({ name, phone });
       onUpdateUser(updated);
-      setSuccess('Profile name updated.');
+      setSuccess('Profile details updated.');
     } catch (err) {
       setError(err.message || 'Could not update profile.');
     } finally {
@@ -77,7 +86,6 @@ export default function AccountModal({
           </button>
         </div>
 
-        {/* Account Summary */}
         <div className="p-4 bg-[#FAF8F5] dark:bg-[#111111] border border-black/10 dark:border-white/10 grid grid-cols-2 gap-3 text-xs">
           <div>
             <p className="text-[#111111]/55 dark:text-white/55">Email</p>
@@ -106,13 +114,12 @@ export default function AccountModal({
           </div>
         )}
 
-        {/* Update Name */}
-        <form onSubmit={handleSaveName} className="space-y-3">
+        <form onSubmit={handleSaveProfile} className="space-y-3">
           <h3 className="text-xs uppercase tracking-wider font-semibold text-[#111111] dark:text-white flex items-center gap-1.5">
             <User className="w-3.5 h-3.5 text-[#C59B27]" />
             <span>Personal Details</span>
           </h3>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <input
               type="text"
               required
@@ -121,17 +128,24 @@ export default function AccountModal({
               placeholder="Full Name"
               className={inputStyle}
             />
-            <button
-              type="submit"
-              disabled={savingProfile}
-              className="shrink-0 px-4 py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
-            >
-              {savingProfile ? 'Saving...' : 'Save Name'}
-            </button>
+            <input
+              type="tel"
+              maxLength={11}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+              placeholder="Mobile (010xxxxxxxx)"
+              className={inputStyle}
+            />
           </div>
+          <button
+            type="submit"
+            disabled={savingProfile}
+            className="w-full py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 cursor-pointer"
+          >
+            {savingProfile ? 'Saving...' : 'Save Personal Details'}
+          </button>
         </form>
 
-        {/* Change Password */}
         <form
           onSubmit={handleChangePassword}
           className="space-y-3 pt-4 border-t border-black/10 dark:border-white/10"

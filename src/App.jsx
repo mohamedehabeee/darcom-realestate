@@ -33,6 +33,7 @@ import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
 import AuthModal from './components/AuthModal';
 import AccountModal from './components/AccountModal';
+import PhonePromptModal from './components/PhonePromptModal';
 import AdminMfaGate from './components/AdminMfaGate';
 import SavedUnits from './pages/SavedUnits';
 import AdminDashboard from './pages/AdminDashboard';
@@ -136,6 +137,13 @@ export default function App() {
     () => units.filter((u) => compareIds.includes(u.id)),
     [units, compareIds]
   );
+
+  const needsPhonePrompt =
+    !showIntro &&
+    currentUser &&
+    currentUser.role !== 'admin' &&
+    !currentUser.phone &&
+    !showAuth;
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -418,6 +426,13 @@ export default function App() {
           onUpdateUser={(updated) => setCurrentUser(updated)}
           onLogout={handleLogout}
           onClose={() => setShowAccount(false)}
+        />
+      )}
+
+      {needsPhonePrompt && (
+        <PhonePromptModal
+          currentUser={currentUser}
+          onUpdated={(updated) => setCurrentUser(updated)}
         />
       )}
     </div>

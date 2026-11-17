@@ -216,6 +216,7 @@ async function formatUserWithRole(user) {
     id: user.id,
     name: user.user_metadata?.name || (roleRow?.role === 'admin' ? 'Admin' : email.split('@')[0]),
     email,
+    phone: user.user_metadata?.phone || '',
     role: roleRow?.role === 'admin' ? 'admin' : 'buyer',
   };
 }
@@ -225,12 +226,17 @@ export async function getCurrentUser() {
   return formatUserWithRole(data?.user);
 }
 
-export async function registerUser({ name, email, password }) {
+export async function registerUser({ name, email, phone, password }) {
   const cleanEmail = email.trim().toLowerCase();
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
-    options: { data: { name: name.trim() } },
+    options: {
+      data: {
+        name: name.trim(),
+        phone: (phone || '').trim(),
+      },
+    },
   });
   if (error) throw error;
   return formatUserWithRole(data.user);
@@ -257,9 +263,13 @@ export async function updateUserPassword(newPassword) {
   if (error) throw error;
 }
 
-export async function updateUserProfile({ name }) {
+export async function updateUserProfile({ name, phone }) {
+  const metadata = {};
+  if (name !== undefined) metadata.name = name.trim();
+  if (phone !== undefined) metadata.phone = phone.trim();
+
   const { data, error } = await supabase.auth.updateUser({
-    data: { name: name.trim() },
+    data: metadata,
   });
   if (error) throw error;
   return formatUserWithRole(data.user);

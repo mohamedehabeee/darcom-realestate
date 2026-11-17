@@ -7,9 +7,12 @@ import {
   updateUserPassword,
 } from '../services/realEstateService';
 
+const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
+
 export default function AuthModal({ initialMode = 'login', onSuccess, onClose }) {
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,6 +30,12 @@ export default function AuthModal({ initialMode = 'login', onSuccess, onClose })
     e.preventDefault();
     setError('');
     setMessage('');
+
+    if (mode === 'register' && !EGYPT_PHONE_REGEX.test(phone.trim())) {
+      setError('Please enter a valid 11-digit Egyptian mobile number (e.g. 010xxxxxxxx).');
+      return;
+    }
+
     setLoading(true);
     try {
       if (mode === 'forgot') {
@@ -40,7 +49,7 @@ export default function AuthModal({ initialMode = 'login', onSuccess, onClose })
         const user = await loginUser({ email, password });
         onSuccess(user);
       } else {
-        const user = await registerUser({ name, email, password });
+        const user = await registerUser({ name, email, phone, password });
         onSuccess(user);
       }
     } catch (err) {
@@ -118,19 +127,36 @@ export default function AuthModal({ initialMode = 'login', onSuccess, onClose })
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
-            <div>
-              <label className="block text-xs font-medium mb-1 text-[#111111]/75 dark:text-white/75">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your full name"
-                className={inputStyle}
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-[#111111]/75 dark:text-white/75">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  className={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 text-[#111111]/75 dark:text-white/75">
+                  Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  required
+                  maxLength={11}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="01012345678"
+                  className={inputStyle}
+                />
+              </div>
+            </>
           )}
 
           {mode !== 'reset' && (

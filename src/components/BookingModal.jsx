@@ -3,7 +3,7 @@ import { X, CheckCircle2 } from 'lucide-react';
 
 export default function BookingModal({ unit, currentUser, onSubmit, onClose }) {
   const [name, setName] = useState(currentUser?.name || '');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -26,7 +26,7 @@ export default function BookingModal({ unit, currentUser, onSubmit, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-md w-full p-6">
+      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-md w-full p-6 animate-modal-in">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-[#111111] dark:text-white">
             Book a Viewing
@@ -82,9 +82,10 @@ export default function BookingModal({ unit, currentUser, onSubmit, onClose }) {
               <input
                 type="tel"
                 required
+                maxLength={11}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010xxxxxxxx"
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                placeholder="01012345678"
                 className={inputStyle}
               />
             </div>
