@@ -15,6 +15,7 @@ import {
   updateBookingStatus,
   deleteBooking,
   getCurrentUser,
+  getMfaStatus,
   logoutUser,
 } from './services/realEstateService';
 import IntroScreen from './components/IntroScreen';
@@ -32,6 +33,7 @@ import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
 import AuthModal from './components/AuthModal';
 import AccountModal from './components/AccountModal';
+import AdminMfaGate from './components/AdminMfaGate';
 import SavedUnits from './pages/SavedUnits';
 import AdminDashboard from './pages/AdminDashboard';
 import Footer from './components/Footer';
@@ -60,6 +62,7 @@ export default function App() {
   const [compareIds, setCompareIds] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [mfaVerified, setMfaVerified] = useState(false);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -81,8 +84,11 @@ export default function App() {
       setUnits(loadedUnits);
       setCurrentUser(user);
       if (user?.role === 'admin') {
-        const loadedBookings = await getBookings();
-        setBookings(loadedBookings);
+        const mfa = await getMfaStatus();
+        if (mfa.currentLevel === 'aal2') {
+          setMfaVerified(true);
+          setBookings(await getBookings());
+        }
       }
     }
     loadInitialData();
@@ -188,7 +194,7 @@ export default function App() {
 
   const handleCreateBooking = async (bookingData) => {
     await createBooking(bookingData);
-    if (currentUser?.role === 'admin') {
+    if (currentUser?.role === 'admin' && mfaVerified) {
       setBookings(await getBookings());
     }
   };
@@ -206,6 +212,7 @@ export default function App() {
   const handleLogout = async () => {
     await logoutUser();
     setCurrentUser(null);
+    setMfaVerified(false);
     setBookings([]);
     if (activeView === 'admin') {
       setActiveView('home');
@@ -329,17 +336,26 @@ export default function App() {
         )}
 
         {activeView === 'admin' && currentUser?.role === 'admin' && (
-          <AdminDashboard
-            units={units}
-            bookings={bookings}
-            onAddUnit={handleAddUnit}
-            onUpdateUnit={handleUpdateUnit}
-            onUpdateUnitStatus={handleUpdateUnitStatus}
-            onDeleteUnit={handleDeleteUnit}
-            onResetUnits={handleResetUnits}
-            onUpdateBookingStatus={handleUpdateBookingStatus}
-            onDeleteBooking={handleDeleteBooking}
-          />
+          mfaVerified ? (
+            <AdminDashboard
+              units={units}
+              bookings={bookings}
+              onAddUnit={handleAddUnit}
+              onUpdateUnit={handleUpdateUnit}
+              onUpdateUnitStatus={handleUpdateUnitStatus}
+              onDeleteUnit={handleDeleteUnit}
+              onResetUnits={handleResetUnits}
+              onUpdateBookingStatus={handleUpdateBookingStatus}
+              onDeleteBooking={handleDeleteBooking}
+            />
+          ) : (
+            <AdminMfaGate
+              onVerified={async () => {
+                setMfaVerified(true);
+                setBookings(await getBookings());
+              }}
+            />
+          )
         )}
       </main>
 
@@ -383,7 +399,6 @@ export default function App() {
             setCurrentUser(user);
             setShowAuth(false);
             if (user?.role === 'admin') {
-              setBookings(await getBookings());
               setActiveView('admin');
             }
           }}

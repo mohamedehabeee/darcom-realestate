@@ -132,7 +132,7 @@ export async function uploadPropertyImage(file) {
   return data.publicUrl;
 }
 
-// Saved / Favorites (per browser)
+// Saved / Favorites
 export function getSavedIds() {
   try {
     const raw = localStorage.getItem(SAVED_KEY);
@@ -267,4 +267,41 @@ export async function updateUserProfile({ name }) {
 
 export async function logoutUser() {
   await supabase.auth.signOut();
+}
+
+// Multi-Factor Authentication (TOTP Authenticator App)
+export async function getMfaStatus() {
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const verifiedFactor = factors?.totp?.find((f) => f.status === 'verified');
+  return {
+    currentLevel: aal?.currentLevel || 'aal1',
+    nextLevel: aal?.nextLevel || 'aal1',
+    hasMfaSetup: Boolean(verifiedFactor),
+    factorId: verifiedFactor?.id || null,
+  };
+}
+
+export async function enrollAdminMfa() {
+  const { data, error } = await supabase.auth.mfa.enroll({
+    factorType: 'totp',
+    friendlyName: 'DarCom Admin Authenticator',
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function verifyAdminMfa(factorId, code) {
+  const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({
+    factorId,
+  });
+  if (challengeErr) throw challengeErr;
+
+  const { error: verifyErr } = await supabase.auth.mfa.verify({
+    factorId,
+    challengeId: challenge.id,
+    code: code.trim(),
+  });
+  if (verifyErr) throw verifyErr;
+  return true;
 }
