@@ -2,7 +2,6 @@ import { supabase } from './supabaseClient';
 import { MOCK_UNITS } from '../data/mockUnits';
 
 const SAVED_KEY = 'darcom_saved_v1';
-const ADMIN_EMAIL = 'admin@darcom.eg';
 
 function mapUnitFromDb(row) {
   return {
@@ -202,36 +201,39 @@ export async function deleteBooking(bookingId) {
   return getBookings();
 }
 
-// Authentication (Supabase Auth)
-function formatUser(user) {
+// Authentication (Zero-Trust Role Check via Supabase DB)
+async function formatUserWithRole(user) {
   if (!user) return null;
   const email = (user.email || '').toLowerCase();
+
+  const { data: roleRow } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
   return {
     id: user.id,
-    name: user.user_metadata?.name || (email === ADMIN_EMAIL ? 'Admin' : email.split('@')[0]),
+    name: user.user_metadata?.name || (roleRow?.role === 'admin' ? 'Admin' : email.split('@')[0]),
     email,
-    role: email === ADMIN_EMAIL ? 'admin' : 'buyer',
+    role: roleRow?.role === 'admin' ? 'admin' : 'buyer',
   };
 }
 
 export async function getCurrentUser() {
   const { data } = await supabase.auth.getUser();
-  return formatUser(data?.user);
+  return formatUserWithRole(data?.user);
 }
 
 export async function registerUser({ name, email, password }) {
   const cleanEmail = email.trim().toLowerCase();
-  if (cleanEmail === ADMIN_EMAIL) {
-    throw new Error('This email is reserved.');
-  }
-
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
     options: { data: { name: name.trim() } },
   });
   if (error) throw error;
-  return formatUser(data.user);
+  return formatUserWithRole(data.user);
 }
 
 export async function loginUser({ email, password }) {
@@ -240,7 +242,7 @@ export async function loginUser({ email, password }) {
     password,
   });
   if (error) throw error;
-  return formatUser(data.user);
+  return formatUserWithRole(data.user);
 }
 
 export async function sendPasswordReset(email) {
@@ -260,7 +262,7 @@ export async function updateUserProfile({ name }) {
     data: { name: name.trim() },
   });
   if (error) throw error;
-  return formatUser(data.user);
+  return formatUserWithRole(data.user);
 }
 
 export async function logoutUser() {
