@@ -52,10 +52,16 @@ const isRecoveryUrl = () =>
   window.location.hash.includes('type=recovery') ||
   window.location.search.includes('type=recovery');
 
+const isSecretVaultUrl = () => window.location.hash === '#vault';
+
 export default function App() {
-  const [showIntro, setShowIntro] = useState(() => !isRecoveryUrl());
+  const [showIntro, setShowIntro] = useState(
+    () => !isRecoveryUrl() && !isSecretVaultUrl()
+  );
   const [darkMode, setDarkMode] = useState(false);
-  const [activeView, setActiveView] = useState('home');
+  const [activeView, setActiveView] = useState(() =>
+    isSecretVaultUrl() ? 'admin' : 'home'
+  );
   const [listingLayout, setListingLayout] = useState('grid');
 
   const [units, setUnits] = useState([]);
@@ -70,7 +76,9 @@ export default function App() {
   const [bookingUnit, setBookingUnit] = useState(null);
   const [showCompare, setShowCompare] = useState(false);
   const [showAuth, setShowAuth] = useState(() => isRecoveryUrl());
-  const [authMode, setAuthMode] = useState(() => (isRecoveryUrl() ? 'reset' : 'login'));
+  const [authMode, setAuthMode] = useState(() =>
+    isRecoveryUrl() ? 'reset' : 'login'
+  );
   const [showAccount, setShowAccount] = useState(false);
 
   const listingsRef = useRef(null);
@@ -94,6 +102,16 @@ export default function App() {
     }
     loadInitialData();
 
+    const checkSecretHash = () => {
+      if (window.location.hash === '#vault') {
+        setShowIntro(false);
+        setActiveView('admin');
+        window.history.replaceState({}, '', '/');
+      }
+    };
+    checkSecretHash();
+    window.addEventListener('hashchange', checkSecretHash);
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -104,7 +122,10 @@ export default function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.removeEventListener('hashchange', checkSecretHash);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const filteredUnits = useMemo(() => {
@@ -343,8 +364,8 @@ export default function App() {
           />
         )}
 
-        {activeView === 'admin' && currentUser?.role === 'admin' && (
-          mfaVerified ? (
+        {activeView === 'admin' && (
+          currentUser?.role === 'admin' && mfaVerified ? (
             <AdminDashboard
               units={units}
               bookings={bookings}
@@ -358,10 +379,13 @@ export default function App() {
             />
           ) : (
             <AdminMfaGate
+              currentUser={currentUser}
+              onAdminAuthenticated={(user) => setCurrentUser(user)}
               onVerified={async () => {
                 setMfaVerified(true);
                 setBookings(await getBookings());
               }}
+              onCancel={() => setActiveView('home')}
             />
           )
         )}
