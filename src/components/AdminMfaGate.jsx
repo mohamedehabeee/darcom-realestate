@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, Lock, KeyRound } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, RefreshCw } from 'lucide-react';
 import {
   enrollAdminMfa,
   getMfaStatus,
@@ -9,7 +9,12 @@ import {
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@darcom.eg';
 
-export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVerified, onCancel }) {
+export default function AdminMfaGate({
+  currentUser,
+  onAdminAuthenticated,
+  onVerified,
+  onCancel,
+}) {
   const [step, setStep] = useState('checking');
   const [masterKey, setMasterKey] = useState('');
   const [factorId, setFactorId] = useState(null);
@@ -19,37 +24,42 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const setupMfaStep = async () => {
-    const status = await getMfaStatus();
-    if (status.currentLevel === 'aal2') {
-      onVerified();
-      return;
-    }
-    if (status.hasMfaSetup && status.factorId) {
-      setFactorId(status.factorId);
-    } else {
+  const setupMfaStep = async (forceNewQr = false) => {
+    setError('');
+    setBusy(true);
+    try {
+      if (!forceNewQr) {
+        const status = await getMfaStatus();
+        if (status.currentLevel === 'aal2') {
+          onVerified();
+          return;
+        }
+        if (status.hasMfaSetup && status.factorId) {
+          setFactorId(status.factorId);
+          setQrCode(null);
+          setStep('mfa');
+          return;
+        }
+      }
       const enrolled = await enrollAdminMfa();
       setFactorId(enrolled.id);
       setQrCode(enrolled.totp.qr_code);
       setSecret(enrolled.totp.secret);
+      setStep('mfa');
+    } catch (err) {
+      setError(err.message || 'Could not initialize 2FA.');
+      setStep('key');
+    } finally {
+      setBusy(false);
     }
-    setStep('mfa');
   };
 
   useEffect(() => {
-    async function init() {
-      if (currentUser?.role === 'admin') {
-        try {
-          await setupMfaStep();
-        } catch (err) {
-          setError(err.message || 'Could not initialize 2FA.');
-          setStep('key');
-        }
-      } else {
-        setStep('key');
-      }
+    if (currentUser?.role === 'admin') {
+      setupMfaStep(false);
+    } else {
+      setStep('key');
     }
-    init();
   }, [currentUser]);
 
   const handleMasterKeySubmit = async (e) => {
@@ -62,9 +72,9 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
         throw new Error('Unauthorized access.');
       }
       onAdminAuthenticated(user);
-      await setupMfaStep();
+      onVerified();
     } catch {
-      setError('Invalid Master Key.');
+      setError('Invalid Admin Master Passkey.');
     } finally {
       setBusy(false);
     }
@@ -77,8 +87,10 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
     try {
       await verifyAdminMfa(factorId, code);
       onVerified();
-    } catch (err) {
-      setError(err.message || 'Invalid 6-digit code.');
+    } catch {
+      setError(
+        'Invalid or expired 6-digit code. Make sure your phone clock is set to Automatic, or click "Unlock with Master Passkey Instead" below.'
+      );
     } finally {
       setBusy(false);
     }
@@ -114,7 +126,7 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
         </div>
 
         {error && (
-          <div className="p-3 text-xs bg-red-50 border border-red-300 text-red-700">
+          <div className="p-3 text-xs bg-red-50 border border-red-300 text-red-700 leading-relaxed">
             {error}
           </div>
         )}
@@ -143,7 +155,7 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
               disabled={busy}
               className="w-full py-3 bg-[#111111] text-[#C59B27] text-xs font-semibold uppercase tracking-widest hover:bg-[#C59B27] hover:text-[#111111] disabled:opacity-50 transition-colors cursor-pointer"
             >
-              {busy ? 'Checking...' : 'Continue to 2FA'}
+              {busy ? 'Unlocking...' : 'Unlock Admin Console'}
             </button>
           </form>
         ) : (
@@ -151,7 +163,7 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
             {qrCode ? (
               <div className="space-y-3 text-xs text-neutral-600">
                 <p className="font-medium text-[#111111]">
-                  First-time setup: Scan this QR code in <strong>Google Authenticator</strong>:
+                  Delete any old DarCom entry in <strong>Google Authenticator</strong>, then scan this QR code:
                 </p>
                 <div className="p-3 bg-[#FAF8F5] border border-black/10 flex justify-center">
                   <img src={qrCode} alt="2FA QR Code" className="w-44 h-44" />
@@ -163,9 +175,17 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
                 )}
               </div>
             ) : (
-              <p className="text-xs text-neutral-600">
-                Enter the 6-digit code from <strong>Google Authenticator</strong> on your phone.
-              </p>
+              <div className="flex items-center justify-between text-xs text-neutral-600">
+                <span>Enter the 6-digit code from your phone.</span>
+                <button
+                  type="button"
+                  onClick={() => setupMfaStep(true)}
+                  className="inline-flex items-center gap-1 text-[#C59B27] font-semibold hover:underline cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>New QR</span>
+                </button>
+              </div>
             )}
 
             <div>
@@ -177,7 +197,6 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
                 <input
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]{6}"
                   maxLength={6}
                   required
                   value={code}
@@ -193,7 +212,18 @@ export default function AdminMfaGate({ currentUser, onAdminAuthenticated, onVeri
               disabled={busy || code.length !== 6}
               className="w-full py-3 bg-[#111111] text-[#C59B27] text-xs font-semibold uppercase tracking-widest hover:bg-[#C59B27] hover:text-[#111111] disabled:opacity-50 transition-colors cursor-pointer"
             >
-              {busy ? 'Unlocking...' : 'Unlock Admin Console'}
+              {busy ? 'Unlocking...' : 'Verify 6-Digit Code'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setError('');
+                setStep('key');
+              }}
+              className="w-full pt-1 text-xs text-center text-[#C59B27] font-semibold hover:underline cursor-pointer"
+            >
+              Unlock with Master Passkey Instead →
             </button>
           </form>
         )}
