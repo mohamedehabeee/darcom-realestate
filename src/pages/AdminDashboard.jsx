@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -11,6 +11,12 @@ import {
   Users,
   Settings,
   CheckCircle2,
+  TrendingUp,
+  Building2,
+  DollarSign,
+  PieChart,
+  BarChart3,
+  Search,
 } from 'lucide-react';
 import { uploadPropertyImage } from '../services/realEstateService';
 
@@ -34,6 +40,13 @@ const EMPTY_FORM = {
   description: '',
 };
 
+function fmtCompact(num) {
+  if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B EGP`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M EGP`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(0)}K EGP`;
+  return `${num} EGP`;
+}
+
 export default function AdminDashboard({
   units,
   bookings,
@@ -49,6 +62,7 @@ export default function AdminDashboard({
   onSaveSiteSettings,
 }) {
   const [tab, setTab] = useState('units');
+  const [adminSearch, setAdminSearch] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -66,12 +80,76 @@ export default function AdminDashboard({
   }));
   const [settingsSaved, setSettingsSaved] = useState(false);
 
-  const inputStyle =
-    'w-full px-3 py-2 text-sm bg-white border border-black/20 text-[#111111] placeholder:text-neutral-400 focus:outline-none focus:border-[#C59B27]';
+  const inputCls =
+    'w-full px-3 py-2 text-sm bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg focus:outline-none focus:border-indigo-600';
 
-  const availableCount = units.filter((u) => u.status === 'Available').length;
-  const closedCount = units.filter((u) => u.status === 'Reserved' || u.status === 'Sold').length;
-  const pendingBookings = bookings.filter((b) => b.status === 'Pending').length;
+  const stats = useMemo(() => {
+    const total = units.length || 1;
+    const buyUnits = units.filter((u) => u.purpose === 'Buy');
+    const rentUnits = units.filter((u) => u.purpose === 'Rent');
+    const avail = units.filter((u) => u.status === 'Available').length;
+    const resv = units.filter((u) => u.status === 'Reserved').length;
+    const sold = units.filter((u) => u.status === 'Sold').length;
+
+    const totalVal = buyUnits.reduce((s, u) => s + Number(u.price || 0), 0);
+    const closedVal = buyUnits
+      .filter((u) => u.status === 'Sold' || u.status === 'Reserved')
+      .reduce((s, u) => s + Number(u.price || 0), 0);
+    const rentVal = rentUnits.reduce((s, u) => s + Number(u.price || 0), 0);
+    const totalArea = buyUnits.reduce((s, u) => s + Number(u.area || 0), 0);
+    const avgSqm = totalArea > 0 ? Math.round(totalVal / totalArea) : 0;
+
+    const availPct = Math.round((avail / total) * 100);
+    const resvPct = Math.round((resv / total) * 100);
+    const soldPct = Math.max(0, 100 - availPct - resvPct);
+    const closeRate = Math.round(((sold + resv) / total) * 100);
+    const buyPct = Math.round((buyUnits.length / total) * 100);
+    const rentPct = 100 - buyPct;
+
+    const confBk = bookings.filter((b) => b.status === 'Confirmed').length;
+    const bkRate = bookings.length > 0 ? Math.round((confBk / bookings.length) * 100) : 0;
+
+    const cityCounts = {};
+    units.forEach((u) => {
+      cityCounts[u.city] = (cityCounts[u.city] || 0) + 1;
+    });
+    const cities = Object.entries(cityCounts)
+      .map(([city, count]) => ({ city, count, pct: Math.round((count / total) * 100) }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      avail,
+      resv,
+      sold,
+      buyCount: buyUnits.length,
+      rentCount: rentUnits.length,
+      totalVal,
+      closedVal,
+      rentVal,
+      avgSqm,
+      availPct,
+      resvPct,
+      soldPct,
+      closeRate,
+      buyPct,
+      rentPct,
+      confBk,
+      bkRate,
+      cities,
+    };
+  }, [units, bookings]);
+
+  const tableUnits = useMemo(() => {
+    const q = adminSearch.trim().toLowerCase();
+    if (!q) return units;
+    return units.filter(
+      (u) =>
+        u.title.toLowerCase().includes(q) ||
+        u.compound.toLowerCase().includes(q) ||
+        u.city.toLowerCase().includes(q) ||
+        u.status.toLowerCase().includes(q)
+    );
+  }, [units, adminSearch]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -79,44 +157,38 @@ export default function AdminDashboard({
     setUploadError('');
     setUploading(true);
     try {
-      const publicUrl = await uploadPropertyImage(file);
-      setForm((prev) => ({ ...prev, image: publicUrl }));
+      const url = await uploadPropertyImage(file);
+      setForm((p) => ({ ...p, image: url }));
     } catch (err) {
-      setUploadError(err.message || 'Image upload failed.');
+      setUploadError(err.message || 'Upload failed.');
     } finally {
       setUploading(false);
     }
   };
 
-  const startEdit = (unit) => {
-    setEditingId(unit.id);
+  const startEdit = (u) => {
+    setEditingId(u.id);
     setUploadError('');
     setForm({
-      title: unit.title || '',
-      city: unit.city || 'New Cairo',
-      compound: unit.compound || '',
-      type: unit.type || 'Apartment',
-      purpose: unit.purpose || 'Buy',
-      price: String(unit.price || ''),
-      area: String(unit.area || ''),
-      bedrooms: String(unit.bedrooms ?? 0),
-      bathrooms: String(unit.bathrooms ?? 1),
-      delivery: unit.delivery || 'Ready to Move',
-      downPaymentPercent: String(unit.downPaymentPercent ?? 15),
-      installmentYears: String(unit.installmentYears ?? 7),
-      status: unit.status || 'Available',
-      badge: unit.badge || '',
-      image: unit.image || EMPTY_FORM.image,
-      featuresText: Array.isArray(unit.features) ? unit.features.join(', ') : '',
-      description: unit.description || '',
+      title: u.title || '',
+      city: u.city || 'New Cairo',
+      compound: u.compound || '',
+      type: u.type || 'Apartment',
+      purpose: u.purpose || 'Buy',
+      price: String(u.price || ''),
+      area: String(u.area || ''),
+      bedrooms: String(u.bedrooms ?? 0),
+      bathrooms: String(u.bathrooms ?? 1),
+      delivery: u.delivery || 'Ready to Move',
+      downPaymentPercent: String(u.downPaymentPercent ?? 15),
+      installmentYears: String(u.installmentYears ?? 7),
+      status: u.status || 'Available',
+      badge: u.badge || '',
+      image: u.image || EMPTY_FORM.image,
+      featuresText: Array.isArray(u.features) ? u.features.join(', ') : '',
+      description: u.description || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setUploadError('');
-    setForm(EMPTY_FORM);
   };
 
   const handleSubmit = async (e) => {
@@ -124,7 +196,7 @@ export default function AdminDashboard({
     setSaving(true);
     setUploadError('');
     try {
-      const parsedFeatures = form.featuresText
+      const feats = form.featuresText
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
@@ -145,7 +217,7 @@ export default function AdminDashboard({
         downPaymentPercent: form.purpose === 'Buy' ? Number(form.downPaymentPercent) : 0,
         installmentYears: form.purpose === 'Buy' ? Number(form.installmentYears) : 1,
         image: form.image,
-        features: parsedFeatures.length ? parsedFeatures : ['24/7 Security', 'Parking'],
+        features: feats.length ? feats : ['24/7 Security', 'Parking'],
         description:
           form.description.trim() || `${form.type} in ${form.compound}, ${form.city}.`,
       };
@@ -164,603 +236,690 @@ export default function AdminDashboard({
     }
   };
 
-  const handleSaveSettingsSubmit = async (e) => {
-    e.preventDefault();
-    setSettingsSaved(false);
-    await onSaveSiteSettings(settingsForm);
-    setSettingsSaved(true);
-  };
-
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-      <div className="bg-white text-[#111111] border border-black/15 p-6 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/10 pb-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
-              Management Console
-            </p>
-            <h2 className="text-2xl font-semibold mt-0.5">DarCom Admin Dashboard</h2>
+    <section className="min-h-screen bg-slate-100 text-slate-900 py-8 px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Top Executive Header */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>LIVE REAL-TIME ANALYTICS</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              DarCom Executive Command Center
+            </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={onResetUnits}
-              title="Seed / restore default 12 properties"
-              className="inline-flex items-center gap-1.5 px-3 py-2 border border-black/15 text-xs font-medium text-[#111111] hover:border-[#C59B27] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold text-white cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#C59B27]" />
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span>Reset / Seed Data</span>
             </button>
 
-            <div className="flex flex-wrap border border-black/15 text-xs font-semibold">
-              <button
-                onClick={() => setTab('units')}
-                className={`px-3.5 py-2 cursor-pointer ${
-                  tab === 'units' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
-                }`}
-              >
-                Properties ({units.length})
-              </button>
-              <button
-                onClick={() => setTab('bookings')}
-                className={`px-3.5 py-2 cursor-pointer ${
-                  tab === 'bookings' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
-                }`}
-              >
-                Viewings ({bookings.length})
-              </button>
-              <button
-                onClick={() => setTab('clients')}
-                className={`inline-flex items-center gap-1 px-3.5 py-2 cursor-pointer ${
-                  tab === 'clients' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-[#C59B27]" />
-                <span>Clients ({clients.length})</span>
-              </button>
-              <button
-                onClick={() => setTab('settings')}
-                className={`inline-flex items-center gap-1 px-3.5 py-2 cursor-pointer ${
-                  tab === 'settings' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5 text-[#C59B27]" />
-                <span>Site Settings</span>
-              </button>
+            <div className="flex flex-wrap bg-slate-800/90 p-1 rounded-xl border border-white/10 text-xs font-semibold">
+              {[
+                { id: 'units', label: `Inventory (${units.length})` },
+                { id: 'bookings', label: `Viewings (${bookings.length})` },
+                { id: 'clients', label: `Clients (${clients.length})`, icon: Users },
+                { id: 'settings', label: 'Settings', icon: Settings },
+              ].map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg cursor-pointer transition-all ${
+                      tab === t.id
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {Icon && <Icon className="w-3.5 h-3.5" />}
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* 4 KPI Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 bg-[#FAF8F5] border border-black/10">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">Total Properties</p>
-            <p className="text-2xl font-semibold mt-1">{units.length}</p>
+        {/* 4 Live Financial & Sales KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-400">Portfolio Valuation</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{fmtCompact(stats.totalVal)}</p>
+              <p className="text-xs text-indigo-600 font-semibold mt-1">
+                Avg {new Intl.NumberFormat('en-EG').format(stats.avgSqm)} EGP / m²
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600">
+              <DollarSign className="w-5 h-5" />
+            </div>
           </div>
-          <div className="p-4 bg-[#FAF8F5] border border-black/10">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">Available</p>
-            <p className="text-2xl font-semibold mt-1 text-[#C59B27]">{availableCount}</p>
+
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-400">Closed & Reserved Sales</p>
+              <p className="text-2xl font-bold text-emerald-600 mt-1">{fmtCompact(stats.closedVal)}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {stats.sold} Sold • {stats.resv} Reserved ({stats.closeRate}% Close Rate)
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+              <TrendingUp className="w-5 h-5" />
+            </div>
           </div>
-          <div className="p-4 bg-[#FAF8F5] border border-black/10">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">Reserved / Sold</p>
-            <p className="text-2xl font-semibold mt-1">{closedCount}</p>
+
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-400">Sale vs Rent Mix</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">
+                {stats.buyPct}% Buy / {stats.rentPct}% Rent
+              </p>
+              <p className="text-xs text-amber-600 font-semibold mt-1">
+                Rent Roll: {fmtCompact(stats.rentVal)} / mo
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+              <PieChart className="w-5 h-5" />
+            </div>
           </div>
-          <div className="p-4 bg-[#FAF8F5] border border-black/10">
-            <p className="text-xs text-neutral-500 uppercase tracking-wider">Pending Viewings</p>
-            <p className="text-2xl font-semibold mt-1 text-[#C59B27]">{pendingBookings}</p>
+
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-400">Viewing Conversion</p>
+              <p className="text-2xl font-bold text-indigo-600 mt-1">{stats.bkRate}% Confirmed</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {stats.confBk} of {bookings.length} Requests • {clients.length} Clients
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+              <Building2 className="w-5 h-5" />
+            </div>
           </div>
         </div>
 
-        {tab === 'units' && (
-          <div className="space-y-8">
-            <form onSubmit={handleSubmit} className="p-5 bg-[#FAF8F5] border border-black/10 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  {editingId ? (
-                    <>
-                      <Pencil className="w-4 h-4 text-[#C59B27]" />
-                      <span>Edit Property (Full Control)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 text-[#C59B27]" />
-                      <span>Add New Property</span>
-                    </>
-                  )}
-                </h3>
+        {/* Live Interactive Visual Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Sales Pipeline Breakdown */}
+          <div className="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-indigo-600" />
+                <span>Live Sales Pipeline & Status Share</span>
+              </h3>
+              <span className="text-xs font-semibold text-emerald-600">
+                {stats.closeRate}% Sold/Reserved
+              </span>
+            </div>
 
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 hover:text-[#111111] cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Cancel Edit</span>
-                  </button>
-                )}
+            <div className="h-4 w-full rounded-full bg-slate-100 overflow-hidden flex">
+              <div
+                style={{ width: `${stats.soldPct}%` }}
+                className="bg-emerald-500 transition-all duration-500"
+                title={`Sold: ${stats.soldPct}%`}
+              />
+              <div
+                style={{ width: `${stats.resvPct}%` }}
+                className="bg-amber-400 transition-all duration-500"
+                title={`Reserved: ${stats.resvPct}%`}
+              />
+              <div
+                style={{ width: `${stats.availPct}%` }}
+                className="bg-indigo-500 transition-all duration-500"
+                title={`Available: ${stats.availPct}%`}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
+              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                <span className="font-bold text-emerald-700">Sold ({stats.soldPct}%)</span>
+                <p className="text-slate-600 mt-0.5">{stats.sold} Properties</p>
               </div>
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                <span className="font-bold text-amber-700">Reserved ({stats.resvPct}%)</span>
+                <p className="text-slate-600 mt-0.5">{stats.resv} Properties</p>
+              </div>
+              <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200">
+                <span className="font-bold text-indigo-700">Available ({stats.availPct}%)</span>
+                <p className="text-slate-600 mt-0.5">{stats.avail} Properties</p>
+              </div>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <input
-                  type="text"
-                  required
-                  placeholder="Property Title"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className={inputStyle}
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Compound Name"
-                  value={form.compound}
-                  onChange={(e) => setForm({ ...form, compound: e.target.value })}
-                  className={inputStyle}
-                />
-                <select
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="New Cairo">New Cairo</option>
-                  <option value="Sheikh Zayed">Sheikh Zayed</option>
-                  <option value="New Capital">New Capital</option>
-                  <option value="Maadi">Maadi</option>
-                  <option value="North Coast">North Coast</option>
-                  <option value="Ain Sokhna">Ain Sokhna</option>
-                </select>
-                <select
-                  value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="Villa">Villa</option>
-                  <option value="Apartment">Apartment</option>
-                  <option value="Chalet">Chalet</option>
-                  <option value="Office">Office</option>
-                </select>
-                <select
-                  value={form.purpose}
-                  onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="Buy">For Sale</option>
-                  <option value="Rent">For Rent</option>
-                </select>
-                <input
-                  type="number"
-                  required
-                  placeholder="Price (EGP)"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  className={inputStyle}
-                />
-                <input
-                  type="number"
-                  required
-                  placeholder="Area (m²)"
-                  value={form.area}
-                  onChange={(e) => setForm({ ...form, area: e.target.value })}
-                  className={inputStyle}
-                />
-
-                {/* Beds & Baths */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
-                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Beds</span>
-                    <input
-                      type="number"
-                      min="0"
-                      required
-                      value={form.bedrooms}
-                      onChange={(e) => setForm({ ...form, bedrooms: e.target.value })}
-                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
-                    />
+          {/* City Distribution Bars */}
+          <div className="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-indigo-600" />
+              <span>Regional Inventory Distribution</span>
+            </h3>
+            <div className="space-y-2.5">
+              {stats.cities.map((c) => (
+                <div key={c.city} className="space-y-1">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-slate-700">{c.city}</span>
+                    <span className="text-slate-500">
+                      {c.count} units ({c.pct}%)
+                    </span>
                   </div>
-                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
-                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Baths</span>
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      value={form.bathrooms}
-                      onChange={(e) => setForm({ ...form, bathrooms: e.target.value })}
-                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
+                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      style={{ width: `${c.pct}%` }}
+                      className="h-full bg-gradient-to-r from-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
                     />
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-                {/* Down Payment % & Installment Years */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
-                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Down%</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="90"
-                      required
-                      value={form.downPaymentPercent}
-                      onChange={(e) => setForm({ ...form, downPaymentPercent: e.target.value })}
-                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
-                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Years</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="15"
-                      required
-                      value={form.installmentYears}
-                      onChange={(e) => setForm({ ...form, installmentYears: e.target.value })}
-                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <select
-                  value={form.delivery}
-                  onChange={(e) => setForm({ ...form, delivery: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="Ready to Move">Delivery: Ready to Move</option>
-                  <option value="Under Construction">Delivery: Under Construction</option>
-                  <option value="2027 Delivery">Delivery: 2027</option>
-                </select>
-
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="Available">Status: Available</option>
-                  <option value="Reserved">Status: Reserved</option>
-                  <option value="Sold">Status: Sold</option>
-                </select>
-
-                <select
-                  value={form.badge}
-                  onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                  className={inputStyle}
-                >
-                  <option value="">Badge: None</option>
-                  <option value="New">Badge: New</option>
-                  <option value="Hot">Badge: Hot</option>
-                  <option value="Exclusive">Badge: Exclusive</option>
-                </select>
-
-                {/* Features & Image */}
-                <input
-                  type="text"
-                  placeholder="Features (comma separated: Pool, Smart Home...)"
-                  value={form.featuresText}
-                  onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
-                  className={`${inputStyle} sm:col-span-2`}
-                />
-
-                <div className="sm:col-span-2 flex items-center gap-2">
-                  {form.image && (
-                    <img
-                      src={form.image}
-                      alt="Preview"
-                      className="w-10 h-10 object-cover border border-black/15 shrink-0"
-                    />
+        {/* Main Content Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          {tab === 'units' && (
+            <div className="space-y-8">
+              <form
+                onSubmit={handleSubmit}
+                className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    {editingId ? (
+                      <>
+                        <Pencil className="w-4 h-4 text-indigo-600" />
+                        <span>Edit Property</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 text-indigo-600" />
+                        <span>Add New Property</span>
+                      </>
+                    )}
+                  </h3>
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(null);
+                        setForm(EMPTY_FORM);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancel Edit</span>
+                    </button>
                   )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <input
                     type="text"
-                    placeholder="Paste Image URL or upload from device..."
-                    value={form.image}
-                    onChange={(e) => setForm({ ...form, image: e.target.value })}
-                    className={inputStyle}
+                    required
+                    placeholder="Property Title"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className={inputCls}
                   />
-                  <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 border border-black/20 bg-white text-xs font-semibold text-[#111111] hover:border-[#C59B27] cursor-pointer">
-                    <Upload className="w-3.5 h-3.5 text-[#C59B27]" />
-                    <span>{uploading ? 'Uploading...' : 'Upload'}</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Compound Name"
+                    value={form.compound}
+                    onChange={(e) => setForm({ ...form, compound: e.target.value })}
+                    className={inputCls}
+                  />
+                  <select
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="New Cairo">New Cairo</option>
+                    <option value="Sheikh Zayed">Sheikh Zayed</option>
+                    <option value="New Capital">New Capital</option>
+                    <option value="Maadi">Maadi</option>
+                    <option value="North Coast">North Coast</option>
+                    <option value="Ain Sokhna">Ain Sokhna</option>
+                  </select>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="Villa">Villa</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Chalet">Chalet</option>
+                    <option value="Office">Office</option>
+                  </select>
+                  <select
+                    value={form.purpose}
+                    onChange={(e) => setForm({ ...form, purpose: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="Buy">For Sale</option>
+                    <option value="Rent">For Rent</option>
+                  </select>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Price (EGP)"
+                    value={form.price}
+                    onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="number"
+                    required
+                    placeholder="Area (m²)"
+                    value={form.area}
+                    onChange={(e) => setForm({ ...form, area: e.target.value })}
+                    className={inputCls}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                      <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Beds</span>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={form.bedrooms}
+                        onChange={(e) => setForm({ ...form, bedrooms: e.target.value })}
+                        className="w-full py-2 text-sm bg-transparent focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                      <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Baths</span>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={form.bathrooms}
+                        onChange={(e) => setForm({ ...form, bathrooms: e.target.value })}
+                        className="w-full py-2 text-sm bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                      <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Down%</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="90"
+                        required
+                        value={form.downPaymentPercent}
+                        onChange={(e) => setForm({ ...form, downPaymentPercent: e.target.value })}
+                        className="w-full py-2 text-sm bg-transparent focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                      <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Years</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="15"
+                        required
+                        value={form.installmentYears}
+                        onChange={(e) => setForm({ ...form, installmentYears: e.target.value })}
+                        className="w-full py-2 text-sm bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <select
+                    value={form.delivery}
+                    onChange={(e) => setForm({ ...form, delivery: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="Ready to Move">Delivery: Ready to Move</option>
+                    <option value="Under Construction">Delivery: Under Construction</option>
+                    <option value="2027 Delivery">Delivery: 2027</option>
+                  </select>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="Available">Status: Available</option>
+                    <option value="Reserved">Status: Reserved</option>
+                    <option value="Sold">Status: Sold</option>
+                  </select>
+                  <select
+                    value={form.badge}
+                    onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">Badge: None</option>
+                    <option value="New">Badge: New</option>
+                    <option value="Hot">Badge: Hot</option>
+                    <option value="Exclusive">Badge: Exclusive</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Features (comma separated)"
+                    value={form.featuresText}
+                    onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
+                    className={`${inputCls} sm:col-span-2`}
+                  />
+                  <div className="sm:col-span-2 flex items-center gap-2">
+                    {form.image && (
+                      <img
+                        src={form.image}
+                        alt=""
+                        className="w-10 h-10 rounded-lg object-cover border border-slate-300 shrink-0"
+                      />
+                    )}
                     <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploading}
-                      onChange={handleFileChange}
-                      className="hidden"
+                      type="text"
+                      placeholder="Image URL or upload..."
+                      value={form.image}
+                      onChange={(e) => setForm({ ...form, image: e.target.value })}
+                      className={inputCls}
                     />
-                  </label>
+                    <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-semibold hover:border-indigo-600 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>{uploading ? '...' : 'Upload'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploading}
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    rows="2"
+                    placeholder="Property Description..."
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className={`${inputCls} lg:col-span-4`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={saving || uploading}
+                    className="lg:col-span-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    {saving ? 'Saving...' : editingId ? 'Save All Property Changes' : 'Add Property'}
+                  </button>
+                </div>
+                {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
+              </form>
+
+              <div className="space-y-3">
+                <div className="relative max-w-sm">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={adminSearch}
+                    onChange={(e) => setAdminSearch(e.target.value)}
+                    placeholder="Quick filter inventory..."
+                    className={`${inputCls} pl-9`}
+                  />
                 </div>
 
-                <textarea
-                  rows="2"
-                  placeholder="Full Property Description..."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className={`${inputStyle} lg:col-span-4`}
-                />
-
-                <button
-                  type="submit"
-                  disabled={saving || uploading}
-                  className="lg:col-span-4 py-2.5 px-4 bg-[#111111] text-white text-sm font-semibold hover:bg-[#C59B27] hover:text-[#111111] disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {saving ? 'Saving...' : editingId ? 'Save All Property Changes' : 'Add Property'}
-                </button>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                        <th className="py-3 pr-4">Property</th>
+                        <th className="py-3 px-4">Location</th>
+                        <th className="py-3 px-4">Price & Plan</th>
+                        <th className="py-3 px-4">Badge</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 pl-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableUnits.map((u) => (
+                        <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-3 pr-4 font-semibold text-slate-900">{u.title}</td>
+                          <td className="py-3 px-4 text-slate-500">
+                            {u.compound}, {u.city}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold">
+                              {new Intl.NumberFormat('en-EG').format(u.price)} EGP
+                            </div>
+                            {u.purpose === 'Buy' && (
+                              <div className="text-[11px] text-indigo-600 font-medium">
+                                {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={u.badge || ''}
+                              onChange={(e) => onUpdateUnit(u.id, { badge: e.target.value })}
+                              className="px-2.5 py-1 text-xs rounded-md border border-slate-300 bg-white"
+                            >
+                              <option value="">None</option>
+                              <option value="New">New</option>
+                              <option value="Hot">Hot</option>
+                              <option value="Exclusive">Exclusive</option>
+                            </select>
+                          </td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={u.status}
+                              onChange={(e) => onUpdateUnitStatus(u.id, e.target.value)}
+                              className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
+                                u.status === 'Sold'
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                  : u.status === 'Reserved'
+                                  ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                  : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                              }`}
+                            >
+                              <option value="Available">Available</option>
+                              <option value="Reserved">Reserved</option>
+                              <option value="Sold">Sold</option>
+                            </select>
+                          </td>
+                          <td className="py-3 pl-4 text-right space-x-2">
+                            <button
+                              onClick={() => startEdit(u)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onDeleteUnit(u.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-
-              {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
-            </form>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-black/15 text-xs uppercase text-neutral-500">
-                    <th className="py-3 pr-4">Property</th>
-                    <th className="py-3 px-4">Location</th>
-                    <th className="py-3 px-4">Price & Plan</th>
-                    <th className="py-3 px-4">Badge</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 pl-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {units.map((u) => (
-                    <tr key={u.id} className="border-b border-black/5">
-                      <td className="py-3 pr-4 font-medium">{u.title}</td>
-                      <td className="py-3 px-4 text-neutral-600">
-                        {u.compound}, {u.city}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>{new Intl.NumberFormat('en-EG').format(u.price)} EGP</div>
-                        {u.purpose === 'Buy' && (
-                          <div className="text-[11px] text-[#C59B27]">
-                            {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={u.badge || ''}
-                          onChange={(e) => onUpdateUnit(u.id, { badge: e.target.value })}
-                          className="px-2 py-1 text-xs border border-black/20 bg-white text-[#111111]"
-                        >
-                          <option value="">None</option>
-                          <option value="New">New</option>
-                          <option value="Hot">Hot</option>
-                          <option value="Exclusive">Exclusive</option>
-                        </select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={u.status}
-                          onChange={(e) => onUpdateUnitStatus(u.id, e.target.value)}
-                          className="px-2 py-1 text-xs border border-black/20 bg-white text-[#111111]"
-                        >
-                          <option value="Available">Available</option>
-                          <option value="Reserved">Reserved</option>
-                          <option value="Sold">Sold</option>
-                        </select>
-                      </td>
-                      <td className="py-3 pl-4 text-right space-x-2">
-                        <button
-                          onClick={() => startEdit(u)}
-                          title="Edit Property"
-                          className="p-1.5 text-neutral-600 hover:text-[#C59B27] cursor-pointer"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteUnit(u.id)}
-                          title="Delete Property"
-                          className="p-1.5 text-neutral-500 hover:text-red-600 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === 'bookings' && (
-          <div className="overflow-x-auto">
-            {bookings.length === 0 ? (
-              <p className="py-10 text-center text-sm text-neutral-500">
-                No viewing requests submitted yet.
-              </p>
-            ) : (
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-black/15 text-xs uppercase text-neutral-500">
-                    <th className="py-3 pr-4">Client</th>
-                    <th className="py-3 px-4">Phone</th>
-                    <th className="py-3 px-4">Property</th>
-                    <th className="py-3 px-4">Preferred Date</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 pl-4 text-right">Delete</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((b) => (
-                    <tr key={b.id} className="border-b border-black/5">
-                      <td className="py-3 pr-4 font-medium">{b.name}</td>
-                      <td className="py-3 px-4">{b.phone}</td>
-                      <td className="py-3 px-4 text-neutral-600">{b.unitTitle}</td>
-                      <td className="py-3 px-4">{b.date}</td>
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={() =>
-                            onUpdateBookingStatus(
-                              b.id,
-                              b.status === 'Pending' ? 'Confirmed' : 'Pending'
-                            )
-                          }
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold cursor-pointer ${
-                            b.status === 'Confirmed'
-                              ? 'bg-[#C59B27] text-[#111111]'
-                              : 'bg-neutral-100 text-[#111111]'
-                          }`}
-                        >
-                          {b.status === 'Confirmed' ? (
-                            <Check className="w-3.5 h-3.5" />
-                          ) : (
-                            <Clock className="w-3.5 h-3.5" />
-                          )}
-                          {b.status}
-                        </button>
-                      </td>
-                      <td className="py-3 pl-4 text-right">
-                        <button
-                          onClick={() => onDeleteBooking(b.id)}
-                          title="Delete Request"
-                          className="p-1.5 text-neutral-500 hover:text-red-600 cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+          {tab === 'bookings' && (
+            <div className="overflow-x-auto">
+              {bookings.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No viewing requests submitted yet.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                      <th className="py-3 pr-4">Client</th>
+                      <th className="py-3 px-4">Phone</th>
+                      <th className="py-3 px-4">Property</th>
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 pl-4 text-right">Delete</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {tab === 'clients' && (
-          <div className="overflow-x-auto">
-            {clients.length === 0 ? (
-              <p className="py-10 text-center text-sm text-neutral-500">
-                No registered clients found yet.
-              </p>
-            ) : (
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-black/15 text-xs uppercase text-neutral-500">
-                    <th className="py-3 pr-4">Client Name</th>
-                    <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Mobile Number</th>
-                    <th className="py-3 px-4">Last Updated</th>
-                    <th className="py-3 pl-4 text-right">Contact</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clients.map((c) => (
-                    <tr key={c.id} className="border-b border-black/5">
-                      <td className="py-3 pr-4 font-medium">{c.name}</td>
-                      <td className="py-3 px-4 text-neutral-600">{c.email}</td>
-                      <td className="py-3 px-4 font-semibold text-[#C59B27]">
-                        {c.phone || 'Not provided'}
-                      </td>
-                      <td className="py-3 px-4 text-neutral-500">{c.updatedAt}</td>
-                      <td className="py-3 pl-4 text-right">
-                        {c.phone && (
-                          <a
-                            href={`https://wa.me/2${c.phone}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex px-3 py-1 bg-[#111111] text-[#C59B27] text-xs font-semibold hover:bg-[#C59B27] hover:text-[#111111] transition-colors"
+                  </thead>
+                  <tbody>
+                    {bookings.map((b) => (
+                      <tr key={b.id} className="border-b border-slate-100">
+                        <td className="py-3 pr-4 font-semibold">{b.name}</td>
+                        <td className="py-3 px-4">{b.phone}</td>
+                        <td className="py-3 px-4 text-slate-500">{b.unitTitle}</td>
+                        <td className="py-3 px-4">{b.date}</td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() =>
+                              onUpdateBookingStatus(
+                                b.id,
+                                b.status === 'Pending' ? 'Confirmed' : 'Pending'
+                              )
+                            }
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer ${
+                              b.status === 'Confirmed'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
                           >
-                            WhatsApp
-                          </a>
-                        )}
-                      </td>
+                            {b.status === 'Confirmed' ? (
+                              <Check className="w-3.5 h-3.5" />
+                            ) : (
+                              <Clock className="w-3.5 h-3.5" />
+                            )}
+                            {b.status}
+                          </button>
+                        </td>
+                        <td className="py-3 pl-4 text-right">
+                          <button
+                            onClick={() => onDeleteBooking(b.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {tab === 'clients' && (
+            <div className="overflow-x-auto">
+              {clients.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No registered clients found yet.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                      <th className="py-3 pr-4">Name</th>
+                      <th className="py-3 px-4">Email</th>
+                      <th className="py-3 px-4">Mobile</th>
+                      <th className="py-3 px-4">Updated</th>
+                      <th className="py-3 pl-4 text-right">WhatsApp</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+                  </thead>
+                  <tbody>
+                    {clients.map((c) => (
+                      <tr key={c.id} className="border-b border-slate-100">
+                        <td className="py-3 pr-4 font-semibold">{c.name}</td>
+                        <td className="py-3 px-4 text-slate-500">{c.email}</td>
+                        <td className="py-3 px-4 font-semibold text-indigo-600">
+                          {c.phone || 'Not provided'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">{c.updatedAt}</td>
+                        <td className="py-3 pl-4 text-right">
+                          {c.phone && (
+                            <a
+                              href={`https://wa.me/2${c.phone}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+                            >
+                              Chat
+                            </a>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
-        {tab === 'settings' && (
-          <form onSubmit={handleSaveSettingsSubmit} className="p-5 bg-[#FAF8F5] border border-black/10 space-y-4">
-            <h3 className="text-sm font-semibold flex items-center gap-1.5">
-              <Settings className="w-4 h-4 text-[#C59B27]" />
-              <span>Global Website & Contact Settings</span>
-            </h3>
-
-            {settingsSaved && (
-              <div className="p-3 text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Website settings updated live!</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">Display Phone</label>
+          {tab === 'settings' && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSettingsSaved(false);
+                await onSaveSiteSettings(settingsForm);
+                setSettingsSaved(true);
+              }}
+              className="space-y-4"
+            >
+              {settingsSaved && (
+                <div className="p-3 rounded-lg text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Website settings saved!</span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <input
                   type="text"
+                  placeholder="Display Phone"
                   value={settingsForm.phone}
                   onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">WhatsApp Number (with 20)</label>
                 <input
                   type="text"
+                  placeholder="WhatsApp (with 20)"
                   value={settingsForm.whatsapp}
                   onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Official Email</label>
                 <input
                   type="email"
+                  placeholder="Official Email"
                   value={settingsForm.email}
                   onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Instagram Link</label>
                 <input
                   type="text"
+                  placeholder="Instagram URL"
                   value={settingsForm.instagram}
                   onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Facebook Link</label>
                 <input
                   type="text"
+                  placeholder="Facebook URL"
                   value={settingsForm.facebook}
                   onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Hero Main Headline</label>
                 <input
                   type="text"
+                  placeholder="Hero Headline"
                   value={settingsForm.heroTitle}
                   onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
-                  className={inputStyle}
+                  className={inputCls}
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <label className="block text-xs font-semibold mb-1">Hero Description</label>
-                <textarea
-                  rows="2"
-                  value={settingsForm.heroSubtitle}
-                  onChange={(e) =>
-                    setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })
-                  }
-                  className={inputStyle}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="py-2.5 px-6 bg-[#111111] text-[#C59B27] text-xs font-semibold uppercase tracking-widest hover:bg-[#C59B27] hover:text-[#111111] transition-colors cursor-pointer"
-            >
-              Save Website Settings
-            </button>
-          </form>
-        )}
+              <button
+                type="submit"
+                className="py-2.5 px-6 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wider cursor-pointer"
+              >
+                Save Website Settings
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </section>
   );
