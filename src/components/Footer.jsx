@@ -1,9 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { MapPin, Phone, Mail, ArrowUpRight, Send, CheckCircle2 } from 'lucide-react';
 import { subscribeNewsletter } from '../services/realEstateService';
 
-export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
-  const clicksRef = useRef({ count: 0, timer: null });
+export default function Footer({ onNavigate, siteSettings }) {
   const [subEmail, setSubEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
@@ -20,19 +19,8 @@ export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
     siteSettings?.locationsText || 'New Cairo • Sheikh Zayed • New Capital • North Coast';
 
   const handleLogoClick = () => {
-    clicksRef.current.count += 1;
-    clearTimeout(clicksRef.current.timer);
-    if (clicksRef.current.count >= 5) {
-      clicksRef.current.count = 0;
-      onSecretTrigger?.();
-      return;
-    }
-    clicksRef.current.timer = setTimeout(() => {
-      if (clicksRef.current.count < 5) {
-        onNavigate('home');
-      }
-      clicksRef.current.count = 0;
-    }, 450);
+    onNavigate('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubscribe = async (e) => {
