@@ -10,6 +10,7 @@ import {
   deleteUnit,
   resetUnits,
   getSavedIds,
+  clearLocalSavedIds,
   toggleSavedId,
   syncSavedUnitsWithCloud,
   getBookings,
@@ -129,6 +130,8 @@ export default function App() {
       if (user) {
         const synced = await syncSavedUnitsWithCloud();
         setSavedIds(synced);
+      } else {
+        setSavedIds(clearLocalSavedIds());
       }
 
       if (user?.role === 'admin') {
@@ -169,6 +172,9 @@ export default function App() {
         if (isOAuthCallbackUrl()) {
           window.history.replaceState({}, '', '/');
         }
+      } else if (event === 'SIGNED_OUT') {
+        setSavedIds(clearLocalSavedIds());
+        setCompareIds([]);
       }
     });
 
@@ -245,7 +251,7 @@ export default function App() {
   };
 
   const handleToggleSave = (id) => {
-    setSavedIds(toggleSavedId(id));
+    setSavedIds(toggleSavedId(String(id)));
   };
 
   const handleToggleCompare = (id) => {
@@ -328,6 +334,8 @@ export default function App() {
     await logoutUser();
     setCurrentUser(null);
     setMfaVerified(false);
+    setSavedIds([]);
+    setCompareIds([]);
     setBookings([]);
     setClients([]);
     setSubscribers([]);
@@ -425,7 +433,7 @@ export default function App() {
                     <UnitCard
                       key={unit.id}
                       unit={unit}
-                      isSaved={savedIds.includes(unit.id)}
+                      isSaved={savedIds.includes(String(unit.id))}
                       isCompared={compareIds.includes(unit.id)}
                       onToggleSave={handleToggleSave}
                       onToggleCompare={handleToggleCompare}
@@ -504,7 +512,7 @@ export default function App() {
         <UnitDetails
           unit={selectedUnit}
           siteSettings={siteSettings}
-          isSaved={savedIds.includes(selectedUnit.id)}
+          isSaved={savedIds.includes(String(selectedUnit.id))}
           onToggleSave={handleToggleSave}
           onClose={() => setSelectedUnit(null)}
           onBookViewing={(unit) => {
@@ -537,6 +545,10 @@ export default function App() {
           onSuccess={async (user) => {
             setCurrentUser(user);
             setShowAuth(false);
+            if (user) {
+              const synced = await syncSavedUnitsWithCloud();
+              setSavedIds(synced);
+            }
             if (user?.role === 'admin') {
               setActiveView('admin');
             }

@@ -169,6 +169,15 @@ export function getSavedIds() {
   }
 }
 
+export function clearLocalSavedIds() {
+  try {
+    localStorage.removeItem(SAVED_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+  return [];
+}
+
 export function toggleSavedId(unitId) {
   const strId = String(unitId);
   const current = getSavedIds().map(String);
@@ -205,27 +214,16 @@ export async function syncSavedUnitsWithCloud() {
     const user = authData?.user;
     if (!user) return getSavedIds();
 
-    const localIds = getSavedIds().map(String);
     const { data: rows, error } = await supabase
       .from('saved_units')
       .select('unit_id')
       .eq('user_id', user.id);
 
-    if (error) return localIds;
+    if (error) return getSavedIds();
 
     const remoteIds = (rows || []).map((r) => String(r.unit_id));
-    const merged = Array.from(new Set([...localIds, ...remoteIds]));
-
-    const toUpload = merged.filter((id) => !remoteIds.includes(id));
-    if (toUpload.length > 0) {
-      await supabase.from('saved_units').upsert(
-        toUpload.map((unit_id) => ({ user_id: user.id, unit_id })),
-        { onConflict: 'user_id,unit_id' }
-      );
-    }
-
-    localStorage.setItem(SAVED_KEY, JSON.stringify(merged));
-    return merged;
+    localStorage.setItem(SAVED_KEY, JSON.stringify(remoteIds));
+    return remoteIds;
   } catch {
     return getSavedIds();
   }
@@ -574,6 +572,7 @@ export async function updateUserProfile({ name, phone }) {
 }
 
 export async function logoutUser() {
+  clearLocalSavedIds();
   await supabase.auth.signOut();
 }
 
