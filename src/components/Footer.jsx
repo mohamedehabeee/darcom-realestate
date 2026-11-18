@@ -30,7 +30,7 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
   };
 
   return (
-    <footer className="relative bg-[#080808] text-white overflow-hidden mt-12">
+    <footer className="relative bg-[#080808] text-white overflow-hidden">
       {/* Animated Top Gold Laser Border */}
       <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#C59B27] to-transparent animate-pulse" />
 
