@@ -1,6 +1,11 @@
-import { useState } from 'react';
-import { X, User, Lock, CheckCircle2, LogOut } from 'lucide-react';
-import { updateUserPassword, updateUserProfile } from '../services/realEstateService';
+import { useEffect, useState } from 'react';
+import { X, User, Lock, CheckCircle2, LogOut, Calendar, Clock, Ban } from 'lucide-react';
+import {
+  updateUserPassword,
+  updateUserProfile,
+  getUserBookings,
+  cancelUserBooking,
+} from '../services/realEstateService';
 
 const EGYPT_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
@@ -11,17 +16,35 @@ export default function AccountModal({
   onLogout,
   onClose,
 }) {
+  const [activeTab, setActiveTab] = useState('profile');
   const [name, setName] = useState(currentUser?.name || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
+  const [myBookings, setMyBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const inputStyle =
     'w-full px-3 py-2.5 text-sm bg-white dark:bg-[#111111] border border-black/15 dark:border-white/15 text-[#111111] dark:text-white focus:outline-none focus:border-[#C59B27]';
+
+  useEffect(() => {
+    let mounted = true;
+    setLoadingBookings(true);
+    getUserBookings()
+      .then((list) => {
+        if (mounted) setMyBookings(list);
+      })
+      .finally(() => {
+        if (mounted) setLoadingBookings(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -66,9 +89,18 @@ export default function AccountModal({
     }
   };
 
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      const updated = await cancelUserBooking(bookingId);
+      setMyBookings(updated);
+    } catch (err) {
+      setError(err.message || 'Could not cancel booking.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-lg w-full p-6 space-y-6 animate-modal-in">
+      <div className="bg-white dark:bg-[#161616] border border-black/15 dark:border-white/15 max-w-lg w-full p-6 space-y-5 animate-modal-in">
         <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
@@ -94,11 +126,44 @@ export default function AccountModal({
             </p>
           </div>
           <div>
-            <p className="text-[#111111]/55 dark:text-white/55">Account Type</p>
+            <p className="text-[#111111]/55 dark:text-white/55">Account Activity</p>
             <p className="font-semibold text-[#C59B27] uppercase mt-0.5">
-              {currentUser.role} • {savedCount} Saved
+              {savedCount} Saved • {myBookings.length} Viewings
             </p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 border border-black/15 dark:border-white/15 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('profile');
+              setError('');
+              setSuccess('');
+            }}
+            className={`py-2.5 cursor-pointer transition-colors ${
+              activeTab === 'profile'
+                ? 'bg-[#111111] text-white dark:bg-[#C59B27] dark:text-[#111111]'
+                : 'text-[#111111]/70 dark:text-white/70'
+            }`}
+          >
+            Profile & Security
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('bookings');
+              setError('');
+              setSuccess('');
+            }}
+            className={`py-2.5 cursor-pointer transition-colors ${
+              activeTab === 'bookings'
+                ? 'bg-[#111111] text-white dark:bg-[#C59B27] dark:text-[#111111]'
+                : 'text-[#111111]/70 dark:text-white/70'
+            }`}
+          >
+            My Viewings ({myBookings.length})
+          </button>
         </div>
 
         {error && (
@@ -114,74 +179,133 @@ export default function AccountModal({
           </div>
         )}
 
-        <form onSubmit={handleSaveProfile} className="space-y-3">
-          <h3 className="text-xs uppercase tracking-wider font-semibold text-[#111111] dark:text-white flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-[#C59B27]" />
-            <span>Personal Details</span>
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Full Name"
-              className={inputStyle}
-            />
-            <input
-              type="tel"
-              maxLength={11}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-              placeholder="Mobile (010xxxxxxxx)"
-              className={inputStyle}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={savingProfile}
-            className="w-full py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 cursor-pointer"
-          >
-            {savingProfile ? 'Saving...' : 'Save Personal Details'}
-          </button>
-        </form>
+        {activeTab === 'profile' ? (
+          <>
+            <form onSubmit={handleSaveProfile} className="space-y-3">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-[#111111] dark:text-white flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#C59B27]" />
+                <span>Personal Details</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Full Name"
+                  className={inputStyle}
+                />
+                <input
+                  type="tel"
+                  maxLength={11}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Mobile (010xxxxxxxx)"
+                  className={inputStyle}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="w-full py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              >
+                {savingProfile ? 'Saving...' : 'Save Personal Details'}
+              </button>
+            </form>
 
-        <form
-          onSubmit={handleChangePassword}
-          className="space-y-3 pt-4 border-t border-black/10 dark:border-white/10"
-        >
-          <h3 className="text-xs uppercase tracking-wider font-semibold text-[#111111] dark:text-white flex items-center gap-1.5">
-            <Lock className="w-3.5 h-3.5 text-[#C59B27]" />
-            <span>Change Password</span>
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password (6+ chars)"
-              className={inputStyle}
-            />
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              className={inputStyle}
-            />
+            <form
+              onSubmit={handleChangePassword}
+              className="space-y-3 pt-4 border-t border-black/10 dark:border-white/10"
+            >
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-[#111111] dark:text-white flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-[#C59B27]" />
+                <span>Change Password</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password (6+ chars)"
+                  className={inputStyle}
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className={inputStyle}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingPass}
+                className="w-full py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              >
+                {savingPass ? 'Updating...' : 'Update Password'}
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+            {loadingBookings ? (
+              <p className="py-8 text-center text-xs text-[#111111]/60 dark:text-white/60">
+                Loading your scheduled viewings...
+              </p>
+            ) : myBookings.length === 0 ? (
+              <p className="py-8 text-center text-xs text-[#111111]/60 dark:text-white/60">
+                You have not booked any property viewings yet.
+              </p>
+            ) : (
+              myBookings.map((b) => (
+                <div
+                  key={b.id}
+                  className="p-3.5 border border-black/10 dark:border-white/10 bg-[#FAF8F5] dark:bg-[#111111] flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-[#111111] dark:text-white">
+                      {b.unitTitle}
+                    </p>
+                    <p className="text-xs text-[#111111]/60 dark:text-white/60 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#C59B27]" />
+                      <span>Preferred Date: {b.date}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold ${
+                        b.status === 'Confirmed'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          : b.status === 'Cancelled'
+                          ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      <Clock className="w-3 h-3" />
+                      {b.status}
+                    </span>
+
+                    {b.status === 'Pending' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelBooking(b.id)}
+                        title="Cancel Request"
+                        className="p-1.5 text-red-500 hover:bg-red-500/10 cursor-pointer"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <button
-            type="submit"
-            disabled={savingPass}
-            className="w-full py-2.5 bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111] text-xs font-semibold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 cursor-pointer"
-          >
-            {savingPass ? 'Updating...' : 'Update Password'}
-          </button>
-        </form>
+        )}
 
         <div className="pt-3 border-t border-black/10 dark:border-white/10 flex justify-end">
           <button

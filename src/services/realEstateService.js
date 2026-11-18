@@ -9,9 +9,18 @@ export const DEFAULT_SITE_SETTINGS = {
   email: 'info@darcom.eg',
   instagram: 'https://www.instagram.com/',
   facebook: 'https://www.facebook.com/',
+  heroBadge: 'Egypt Real Estate Marketplace',
   heroTitle: 'Find Your Next Home With Clear Numbers.',
   heroSubtitle:
     'Explore verified villas, apartments, and offices across New Cairo, Sheikh Zayed, and the New Capital — compare units side-by-side and calculate monthly installments before booking a viewing.',
+  heroCta: 'Explore Properties',
+  footerDesc:
+    'Interactive 3D architectural tours, live installment modeling, and verified residences across New Cairo, Sheikh Zayed, New Capital, and the North Coast.',
+  locationsText: 'New Cairo • Sheikh Zayed • New Capital • North Coast',
+  showVideoSection: true,
+  showLocationsSection: true,
+  showWhyDarcomSection: true,
+  showFeaturedSlider: true,
 };
 
 function mapUnitFromDb(row) {
@@ -56,9 +65,10 @@ function mapUnitToDb(unit) {
     installment_years: Number(unit.installmentYears ?? 7),
     image: unit.image,
     gallery: unit.gallery?.length ? unit.gallery : [unit.image],
-    features: Array.isArray(unit.features) && unit.features.length
-      ? unit.features
-      : ['24/7 Security', 'Parking'],
+    features:
+      Array.isArray(unit.features) && unit.features.length
+        ? unit.features
+        : ['24/7 Security', 'Parking'],
     description: unit.description || '',
   };
 }
@@ -104,7 +114,7 @@ export async function updateUnit(unitId, updatedData) {
   }
   if (updatedData.image !== undefined) {
     payload.image = updatedData.image;
-    payload.gallery = [updatedData.image];
+    payload.gallery = updatedData.gallery?.length ? updatedData.gallery : [updatedData.image];
   }
   if (updatedData.features !== undefined) payload.features = updatedData.features;
   if (updatedData.description !== undefined) payload.description = updatedData.description;
@@ -137,7 +147,7 @@ export async function resetUnits() {
 // Storage Image Upload
 export async function uploadPropertyImage(file) {
   const ext = file.name.split('.').pop() || 'jpg';
-  const fileName = `unit-${Date.now()}.${ext}`;
+  const fileName = `unit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from('property-images')
@@ -149,7 +159,7 @@ export async function uploadPropertyImage(file) {
   return data.publicUrl;
 }
 
-// Saved / Favorites
+// Saved / Favorites (Local + Supabase Cloud Sync)
 export function getSavedIds() {
   try {
     const raw = localStorage.getItem(SAVED_KEY);
@@ -160,11 +170,65 @@ export function getSavedIds() {
 }
 
 export function toggleSavedId(unitId) {
-  const current = getSavedIds();
-  const exists = current.includes(unitId);
-  const updated = exists ? current.filter((id) => id !== unitId) : [...current, unitId];
+  const strId = String(unitId);
+  const current = getSavedIds().map(String);
+  const exists = current.includes(strId);
+  const updated = exists ? current.filter((id) => id !== strId) : [...current, strId];
   localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
+
+  supabase.auth.getUser().then(async ({ data }) => {
+    const user = data?.user;
+    if (!user) return;
+    try {
+      if (exists) {
+        await supabase
+          .from('saved_units')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('unit_id', strId);
+      } else {
+        await supabase
+          .from('saved_units')
+          .upsert({ user_id: user.id, unit_id: strId }, { onConflict: 'user_id,unit_id' });
+      }
+    } catch {
+      // Cloud sync optional fallback
+    }
+  });
+
   return updated;
+}
+
+export async function syncSavedUnitsWithCloud() {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user) return getSavedIds();
+
+    const localIds = getSavedIds().map(String);
+    const { data: rows, error } = await supabase
+      .from('saved_units')
+      .select('unit_id')
+      .eq('user_id', user.id);
+
+    if (error) return localIds;
+
+    const remoteIds = (rows || []).map((r) => String(r.unit_id));
+    const merged = Array.from(new Set([...localIds, ...remoteIds]));
+
+    const toUpload = merged.filter((id) => !remoteIds.includes(id));
+    if (toUpload.length > 0) {
+      await supabase.from('saved_units').upsert(
+        toUpload.map((unit_id) => ({ user_id: user.id, unit_id })),
+        { onConflict: 'user_id,unit_id' }
+      );
+    }
+
+    localStorage.setItem(SAVED_KEY, JSON.stringify(merged));
+    return merged;
+  } catch {
+    return getSavedIds();
+  }
 }
 
 // Viewing Bookings
@@ -174,11 +238,12 @@ export async function getBookings() {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) return [];
+  if (error || !data) return [];
   return data.map((b) => ({
     id: b.id,
     unitId: b.unit_id,
     unitTitle: b.unit_title,
+    userId: b.user_id || null,
     name: b.name,
     phone: b.phone,
     date: b.preferred_date,
@@ -187,22 +252,64 @@ export async function getBookings() {
   }));
 }
 
+export async function getUserBookings() {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((b) => ({
+      id: b.id,
+      unitId: b.unit_id,
+      unitTitle: b.unit_title,
+      date: b.preferred_date,
+      phone: b.phone,
+      status: b.status || 'Pending',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function cancelUserBooking(bookingId) {
+  const { error } = await supabase
+    .from('bookings')
+    .update({ status: 'Cancelled' })
+    .eq('id', bookingId);
+  if (error) throw error;
+  return getUserBookings();
+}
+
 export async function createBooking(booking) {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     booking.unitId || ''
   );
 
-  const { error } = await supabase.from('bookings').insert([
-    {
-      unit_id: isUuid ? booking.unitId : null,
-      unit_title: booking.unitTitle,
-      name: booking.name,
-      phone: booking.phone,
-      preferred_date: booking.date,
-      notes: booking.notes || '',
-      status: 'Pending',
-    },
-  ]);
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData?.user?.id || null;
+
+  const payload = {
+    unit_id: isUuid ? booking.unitId : null,
+    unit_title: booking.unitTitle,
+    name: booking.name,
+    phone: booking.phone,
+    preferred_date: booking.date,
+    notes: booking.notes || '',
+    status: 'Pending',
+  };
+
+  if (userId) {
+    payload.user_id = userId;
+  }
+
+  const { error } = await supabase.from('bookings').insert([payload]);
   if (error) throw error;
 }
 
@@ -235,7 +342,63 @@ export async function getRegisteredClients() {
   }));
 }
 
-// Site Settings
+// Newsletter Subscribers (VIP Footer Form)
+export async function subscribeNewsletter(email) {
+  const clean = (email || '').trim().toLowerCase();
+  if (!clean) throw new Error('Please enter a valid email.');
+  const { error } = await supabase
+    .from('newsletter_subscribers')
+    .upsert({ email: clean }, { onConflict: 'email' });
+  if (error) throw error;
+  return true;
+}
+
+export async function getNewsletterSubscribers() {
+  const { data, error } = await supabase
+    .from('newsletter_subscribers')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((s) => ({
+    id: s.id,
+    email: s.email,
+    createdAt: s.created_at ? new Date(s.created_at).toLocaleDateString('en-EG') : '—',
+  }));
+}
+
+export async function deleteNewsletterSubscriber(id) {
+  const { error } = await supabase.from('newsletter_subscribers').delete().eq('id', id);
+  if (error) throw error;
+  return getNewsletterSubscribers();
+}
+
+// Admin Activity Logs (Audit Trail)
+export async function getAdminActivityLogs() {
+  const { data, error } = await supabase
+    .from('admin_activity_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(60);
+
+  if (error || !data) return [];
+  return data.map((l) => ({
+    id: l.id,
+    actorEmail: l.actor_email || 'Admin',
+    action: l.action || 'UPDATED',
+    entityType: l.entity_type || 'Unit',
+    entityTitle: l.entity_title || '',
+    details: l.details || '',
+    createdAt: l.created_at
+      ? new Date(l.created_at).toLocaleString('en-EG', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : '—',
+  }));
+}
+
+// Site Settings (Full Admin Control)
 export async function getSiteSettings() {
   const { data, error } = await supabase
     .from('site_settings')
@@ -244,6 +407,7 @@ export async function getSiteSettings() {
     .maybeSingle();
 
   if (error || !data) return DEFAULT_SITE_SETTINGS;
+  const cfg = data.config || {};
   return {
     phone: data.phone || DEFAULT_SITE_SETTINGS.phone,
     whatsapp: data.whatsapp || DEFAULT_SITE_SETTINGS.whatsapp,
@@ -252,11 +416,30 @@ export async function getSiteSettings() {
     facebook: data.facebook || DEFAULT_SITE_SETTINGS.facebook,
     heroTitle: data.hero_title || DEFAULT_SITE_SETTINGS.heroTitle,
     heroSubtitle: data.hero_subtitle || DEFAULT_SITE_SETTINGS.heroSubtitle,
+    heroBadge: cfg.heroBadge || DEFAULT_SITE_SETTINGS.heroBadge,
+    heroCta: cfg.heroCta || DEFAULT_SITE_SETTINGS.heroCta,
+    footerDesc: cfg.footerDesc || DEFAULT_SITE_SETTINGS.footerDesc,
+    locationsText: cfg.locationsText || DEFAULT_SITE_SETTINGS.locationsText,
+    showVideoSection: cfg.showVideoSection ?? DEFAULT_SITE_SETTINGS.showVideoSection,
+    showLocationsSection: cfg.showLocationsSection ?? DEFAULT_SITE_SETTINGS.showLocationsSection,
+    showWhyDarcomSection: cfg.showWhyDarcomSection ?? DEFAULT_SITE_SETTINGS.showWhyDarcomSection,
+    showFeaturedSlider: cfg.showFeaturedSlider ?? DEFAULT_SITE_SETTINGS.showFeaturedSlider,
   };
 }
 
 export async function updateSiteSettings(settings) {
-  const { error } = await supabase.from('site_settings').upsert({
+  const extraConfig = {
+    heroBadge: settings.heroBadge ?? DEFAULT_SITE_SETTINGS.heroBadge,
+    heroCta: settings.heroCta ?? DEFAULT_SITE_SETTINGS.heroCta,
+    footerDesc: settings.footerDesc ?? DEFAULT_SITE_SETTINGS.footerDesc,
+    locationsText: settings.locationsText ?? DEFAULT_SITE_SETTINGS.locationsText,
+    showVideoSection: settings.showVideoSection ?? true,
+    showLocationsSection: settings.showLocationsSection ?? true,
+    showWhyDarcomSection: settings.showWhyDarcomSection ?? true,
+    showFeaturedSlider: settings.showFeaturedSlider ?? true,
+  };
+
+  const payloadWithConfig = {
     id: 1,
     phone: settings.phone,
     whatsapp: settings.whatsapp,
@@ -265,9 +448,16 @@ export async function updateSiteSettings(settings) {
     facebook: settings.facebook,
     hero_title: settings.heroTitle,
     hero_subtitle: settings.heroSubtitle,
+    config: extraConfig,
     updated_at: new Date().toISOString(),
-  });
-  if (error) throw error;
+  };
+
+  const { error } = await supabase.from('site_settings').upsert(payloadWithConfig);
+  if (error) {
+    const { config, ...fallbackPayload } = payloadWithConfig;
+    const { error: fallbackErr } = await supabase.from('site_settings').upsert(fallbackPayload);
+    if (fallbackErr) throw fallbackErr;
+  }
   return getSiteSettings();
 }
 

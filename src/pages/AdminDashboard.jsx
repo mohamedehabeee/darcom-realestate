@@ -17,6 +17,9 @@ import {
   PieChart,
   BarChart3,
   Search,
+  Mail,
+  Activity,
+  Download,
 } from 'lucide-react';
 import { uploadPropertyImage } from '../services/realEstateService';
 
@@ -51,6 +54,8 @@ export default function AdminDashboard({
   units,
   bookings,
   clients = [],
+  subscribers = [],
+  activityLogs = [],
   siteSettings,
   onAddUnit,
   onUpdateUnit,
@@ -59,6 +64,7 @@ export default function AdminDashboard({
   onResetUnits,
   onUpdateBookingStatus,
   onDeleteBooking,
+  onDeleteSubscriber,
   onSaveSiteSettings,
 }) {
   const [tab, setTab] = useState('units');
@@ -75,8 +81,17 @@ export default function AdminDashboard({
     email: siteSettings?.email || 'info@darcom.eg',
     instagram: siteSettings?.instagram || 'https://www.instagram.com/',
     facebook: siteSettings?.facebook || 'https://www.facebook.com/',
+    heroBadge: siteSettings?.heroBadge || 'Egypt Real Estate Marketplace',
     heroTitle: siteSettings?.heroTitle || 'Find Your Next Home With Clear Numbers.',
     heroSubtitle: siteSettings?.heroSubtitle || '',
+    heroCta: siteSettings?.heroCta || 'Explore Properties',
+    footerDesc: siteSettings?.footerDesc || '',
+    locationsText:
+      siteSettings?.locationsText || 'New Cairo • Sheikh Zayed • New Capital • North Coast',
+    showVideoSection: siteSettings?.showVideoSection ?? true,
+    showLocationsSection: siteSettings?.showLocationsSection ?? true,
+    showWhyDarcomSection: siteSettings?.showWhyDarcomSection ?? true,
+    showFeaturedSlider: siteSettings?.showFeaturedSlider ?? true,
   }));
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -164,6 +179,18 @@ export default function AdminDashboard({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleExportSubscribersCsv = () => {
+    if (!subscribers.length) return;
+    const csv = ['Email,Subscribed Date', ...subscribers.map((s) => `${s.email},${s.createdAt}`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `darcom-vip-subscribers-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const startEdit = (u) => {
@@ -268,6 +295,8 @@ export default function AdminDashboard({
                 { id: 'units', label: `Inventory (${units.length})` },
                 { id: 'bookings', label: `Viewings (${bookings.length})` },
                 { id: 'clients', label: `Clients (${clients.length})`, icon: Users },
+                { id: 'newsletter', label: `VIP Leads (${subscribers.length})`, icon: Mail },
+                { id: 'logs', label: `Audit Logs (${activityLogs.length})`, icon: Activity },
                 { id: 'settings', label: 'Settings', icon: Settings },
               ].map((t) => {
                 const Icon = t.icon;
@@ -275,7 +304,7 @@ export default function AdminDashboard({
                   <button
                     key={t.id}
                     onClick={() => setTab(t.id)}
-                    className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg cursor-pointer transition-all ${
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
                       tab === t.id
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-slate-300 hover:text-white'
@@ -871,6 +900,101 @@ export default function AdminDashboard({
             </div>
           )}
 
+          {tab === 'newsletter' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  VIP launch alert subscribers collected from the website footer.
+                </p>
+                {subscribers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleExportSubscribersCsv}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                )}
+              </div>
+
+              {subscribers.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No VIP newsletter subscribers yet.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
+                      <th className="py-3 pr-4">Email</th>
+                      <th className="py-3 px-4">Subscribed Date</th>
+                      <th className="py-3 pl-4 text-right">Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscribers.map((s) => (
+                      <tr key={s.id} className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-3 pr-4 font-semibold">{s.email}</td>
+                        <td className="py-3 px-4 text-slate-400">{s.createdAt}</td>
+                        <td className="py-3 pl-4 text-right">
+                          <button
+                            onClick={() => onDeleteSubscriber?.(s.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {tab === 'logs' && (
+            <div className="overflow-x-auto">
+              {activityLogs.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No database activity logged yet. Any unit or booking change will appear here automatically.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
+                      <th className="py-3 pr-4">Action</th>
+                      <th className="py-3 px-4">Target</th>
+                      <th className="py-3 px-4">Details</th>
+                      <th className="py-3 px-4">Actor</th>
+                      <th className="py-3 pl-4 text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLogs.map((log) => (
+                      <tr key={log.id} className="border-b border-slate-100 dark:border-slate-800">
+                        <td className="py-3 pr-4">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold">
+                          {log.entityType}: {log.entityTitle}
+                        </td>
+                        <td className="py-3 px-4 text-xs text-slate-500 dark:text-slate-400">
+                          {log.details}
+                        </td>
+                        <td className="py-3 px-4 text-xs text-slate-400">{log.actorEmail}</td>
+                        <td className="py-3 pl-4 text-right text-xs text-slate-400">
+                          {log.createdAt}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
           {tab === 'settings' && (
             <form
               onSubmit={async (e) => {
@@ -879,63 +1003,140 @@ export default function AdminDashboard({
                 await onSaveSiteSettings(settingsForm);
                 setSettingsSaved(true);
               }}
-              className="space-y-4"
+              className="space-y-6"
             >
               {settingsSaved && (
                 <div className="p-3 rounded-lg text-xs bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Website settings saved!</span>
+                  <span>All website settings & section visibility updated live!</span>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder="Display Phone"
-                  value={settingsForm.phone}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                  className={inputCls}
-                />
-                <input
-                  type="text"
-                  placeholder="WhatsApp (with 20)"
-                  value={settingsForm.whatsapp}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
-                  className={inputCls}
-                />
-                <input
-                  type="email"
-                  placeholder="Official Email"
-                  value={settingsForm.email}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                  className={inputCls}
-                />
-                <input
-                  type="text"
-                  placeholder="Instagram URL"
-                  value={settingsForm.instagram}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
-                  className={inputCls}
-                />
-                <input
-                  type="text"
-                  placeholder="Facebook URL"
-                  value={settingsForm.facebook}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
-                  className={inputCls}
-                />
-                <input
-                  type="text"
-                  placeholder="Hero Headline"
-                  value={settingsForm.heroTitle}
-                  onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
-                  className={inputCls}
-                />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Contact, Social & Hero Content
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Display Phone"
+                    value={settingsForm.phone}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="text"
+                    placeholder="WhatsApp (with 20)"
+                    value={settingsForm.whatsapp}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Official Email"
+                    value={settingsForm.email}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Instagram URL"
+                    value={settingsForm.instagram}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Facebook URL"
+                    value={settingsForm.facebook}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hero Badge Text"
+                    value={settingsForm.heroBadge}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroBadge: e.target.value })}
+                    className={inputCls}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hero Headline"
+                    value={settingsForm.heroTitle}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
+                    className={`${inputCls} sm:col-span-2`}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Hero Button Text"
+                    value={settingsForm.heroCta}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroCta: e.target.value })}
+                    className={inputCls}
+                  />
+                  <textarea
+                    rows="2"
+                    placeholder="Hero Subtitle..."
+                    value={settingsForm.heroSubtitle}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })
+                    }
+                    className={`${inputCls} lg:col-span-3`}
+                  />
+                  <textarea
+                    rows="2"
+                    placeholder="Footer Description..."
+                    value={settingsForm.footerDesc}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, footerDesc: e.target.value })
+                    }
+                    className={`${inputCls} sm:col-span-2`}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Footer Locations Line"
+                    value={settingsForm.locationsText}
+                    onChange={(e) =>
+                      setSettingsForm({ ...settingsForm, locationsText: e.target.value })
+                    }
+                    className={inputCls}
+                  />
+                </div>
               </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Homepage Section Visibility Controls
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-semibold">
+                  {[
+                    { key: 'showVideoSection', label: 'Architectural Video Section' },
+                    { key: 'showLocationsSection', label: 'Prime Locations Section' },
+                    { key: 'showWhyDarcomSection', label: 'Why DarCom Section' },
+                    { key: 'showFeaturedSlider', label: 'Featured Properties Slider' },
+                  ].map((sec) => (
+                    <label
+                      key={sec.key}
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 cursor-pointer"
+                    >
+                      <span>{sec.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settingsForm[sec.key])}
+                        onChange={(e) =>
+                          setSettingsForm({ ...settingsForm, [sec.key]: e.target.checked })
+                        }
+                        className="w-4 h-4 accent-indigo-600"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="submit"
                 className="py-2.5 px-6 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold uppercase tracking-wider cursor-pointer"
               >
-                Save Website Settings
+                Save All Website Settings
               </button>
             </form>
           )}

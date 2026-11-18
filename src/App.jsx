@@ -11,11 +11,15 @@ import {
   resetUnits,
   getSavedIds,
   toggleSavedId,
+  syncSavedUnitsWithCloud,
   getBookings,
   createBooking,
   updateBookingStatus,
   deleteBooking,
   getRegisteredClients,
+  getNewsletterSubscribers,
+  deleteNewsletterSubscriber,
+  getAdminActivityLogs,
   getSiteSettings,
   updateSiteSettings,
   getCurrentUser,
@@ -76,6 +80,8 @@ export default function App() {
   const [compareIds, setCompareIds] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [clients, setClients] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [currentUser, setCurrentUser] = useState(null);
   const [mfaVerified, setMfaVerified] = useState(false);
@@ -92,6 +98,19 @@ export default function App() {
 
   const listingsRef = useRef(null);
 
+  const loadAdminRecords = async () => {
+    const [loadedBookings, loadedClients, loadedSubs, loadedLogs] = await Promise.all([
+      getBookings(),
+      getRegisteredClients(),
+      getNewsletterSubscribers(),
+      getAdminActivityLogs(),
+    ]);
+    setBookings(loadedBookings);
+    setClients(loadedClients);
+    setSubscribers(loadedSubs);
+    setActivityLogs(loadedLogs);
+  };
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
@@ -107,16 +126,16 @@ export default function App() {
       setCurrentUser(user);
       setSiteSettings(loadedSettings);
 
+      if (user) {
+        const synced = await syncSavedUnitsWithCloud();
+        setSavedIds(synced);
+      }
+
       if (user?.role === 'admin') {
         const mfa = await getMfaStatus();
         if (mfa.currentLevel === 'aal2') {
           setMfaVerified(true);
-          const [loadedBookings, loadedClients] = await Promise.all([
-            getBookings(),
-            getRegisteredClients(),
-          ]);
-          setBookings(loadedBookings);
-          setClients(loadedClients);
+          await loadAdminRecords();
         }
       }
     }
@@ -143,15 +162,38 @@ export default function App() {
         const user = await getCurrentUser();
         setCurrentUser(user);
         setShowAuth(false);
+        if (user) {
+          const synced = await syncSavedUnitsWithCloud();
+          setSavedIds(synced);
+        }
         if (isOAuthCallbackUrl()) {
           window.history.replaceState({}, '', '/');
         }
       }
     });
 
+    // Live Supabase Realtime Channel
+    const realtimeChannel = supabase
+      .channel('darcom-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, async () => {
+        setUnits(await getUnits());
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async () => {
+        setBookings(await getBookings());
+      })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'admin_activity_logs' },
+        async () => {
+          setActivityLogs(await getAdminActivityLogs());
+        }
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener('hashchange', checkSecretHash);
       subscription.unsubscribe();
+      supabase.removeChannel(realtimeChannel);
     };
   }, []);
 
@@ -226,43 +268,55 @@ export default function App() {
   const handleAddUnit = async (unitData) => {
     const updated = await addUnit(unitData);
     setUnits(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleUpdateUnit = async (id, updatedData) => {
     const updated = await updateUnit(id, updatedData);
     setUnits(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleUpdateUnitStatus = async (id, status) => {
     const updated = await updateUnitStatus(id, status);
     setUnits(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleDeleteUnit = async (id) => {
     const updated = await deleteUnit(id);
     setUnits(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleResetUnits = async () => {
     const updated = await resetUnits();
     setUnits(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleCreateBooking = async (bookingData) => {
     await createBooking(bookingData);
     if (currentUser?.role === 'admin' && mfaVerified) {
-      setBookings(await getBookings());
+      await loadAdminRecords();
     }
   };
 
   const handleUpdateBookingStatus = async (id, status) => {
     const updated = await updateBookingStatus(id, status);
     setBookings(updated);
+    setActivityLogs(await getAdminActivityLogs());
   };
 
   const handleDeleteBooking = async (id) => {
     const updated = await deleteBooking(id);
     setBookings(updated);
+    setActivityLogs(await getAdminActivityLogs());
+  };
+
+  const handleDeleteSubscriber = async (id) => {
+    const updated = await deleteNewsletterSubscriber(id);
+    setSubscribers(updated);
   };
 
   const handleSaveSiteSettings = async (newSettings) => {
@@ -276,6 +330,8 @@ export default function App() {
     setMfaVerified(false);
     setBookings([]);
     setClients([]);
+    setSubscribers([]);
+    setActivityLogs([]);
     if (activeView === 'admin') {
       setActiveView('home');
     }
@@ -311,7 +367,7 @@ export default function App() {
               }
             />
 
-            <VideoShowcaseSection />
+            {siteSettings?.showVideoSection !== false && <VideoShowcaseSection />}
 
             <section ref={listingsRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -380,9 +436,13 @@ export default function App() {
               )}
             </section>
 
-            <LocationsSection units={units} onSelectCity={handleSelectCity} />
-            <WhyDarcomSection />
-            <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
+            {siteSettings?.showLocationsSection !== false && (
+              <LocationsSection units={units} onSelectCity={handleSelectCity} />
+            )}
+            {siteSettings?.showWhyDarcomSection !== false && <WhyDarcomSection />}
+            {siteSettings?.showFeaturedSlider !== false && (
+              <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
+            )}
           </>
         )}
 
@@ -404,6 +464,8 @@ export default function App() {
               units={units}
               bookings={bookings}
               clients={clients}
+              subscribers={subscribers}
+              activityLogs={activityLogs}
               siteSettings={siteSettings}
               onAddUnit={handleAddUnit}
               onUpdateUnit={handleUpdateUnit}
@@ -412,6 +474,7 @@ export default function App() {
               onResetUnits={handleResetUnits}
               onUpdateBookingStatus={handleUpdateBookingStatus}
               onDeleteBooking={handleDeleteBooking}
+              onDeleteSubscriber={handleDeleteSubscriber}
               onSaveSiteSettings={handleSaveSiteSettings}
             />
           ) : (
@@ -420,12 +483,7 @@ export default function App() {
               onAdminAuthenticated={(user) => setCurrentUser(user)}
               onVerified={async () => {
                 setMfaVerified(true);
-                const [loadedBookings, loadedClients] = await Promise.all([
-                  getBookings(),
-                  getRegisteredClients(),
-                ]);
-                setBookings(loadedBookings);
-                setClients(loadedClients);
+                await loadAdminRecords();
               }}
               onCancel={() => setActiveView('home')}
             />

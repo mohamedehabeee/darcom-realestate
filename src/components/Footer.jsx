@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react';
 import { MapPin, Phone, Mail, ArrowUpRight, Send, CheckCircle2 } from 'lucide-react';
+import { subscribeNewsletter } from '../services/realEstateService';
 
 export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
   const clicksRef = useRef({ count: 0, timer: null });
   const [subEmail, setSubEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState('');
 
   const phone = siteSettings?.phone || '+20 106 534 7544';
   const email = siteSettings?.email || 'info@darcom.eg';
@@ -32,11 +35,20 @@ export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
     }, 450);
   };
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
     if (!subEmail.trim()) return;
-    setSubscribed(true);
-    setSubEmail('');
+    setSubError('');
+    setSubLoading(true);
+    try {
+      await subscribeNewsletter(subEmail);
+      setSubscribed(true);
+      setSubEmail('');
+    } catch (err) {
+      setSubError(err.message || 'Could not subscribe right now.');
+    } finally {
+      setSubLoading(false);
+    }
   };
 
   return (
@@ -83,22 +95,26 @@ export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
                 <span>You are subscribed to DarCom VIP alerts.</span>
               </div>
             ) : (
-              <form onSubmit={handleSubscribe} className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  value={subEmail}
-                  onChange={(e) => setSubEmail(e.target.value)}
-                  placeholder="Enter your email..."
-                  className="flex-1 px-3 py-2.5 text-xs bg-black border border-white/15 text-white focus:outline-none focus:border-[#C59B27]"
-                />
-                <button
-                  type="submit"
-                  className="gold-sheen px-4 py-2.5 bg-[#C59B27] text-[#111111] text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span>Join</span>
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+              <form onSubmit={handleSubscribe} className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    value={subEmail}
+                    onChange={(e) => setSubEmail(e.target.value)}
+                    placeholder="Enter your email..."
+                    className="flex-1 px-3 py-2.5 text-xs bg-black border border-white/15 text-white focus:outline-none focus:border-[#C59B27]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={subLoading}
+                    className="gold-sheen px-4 py-2.5 bg-[#C59B27] text-[#111111] text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>{subLoading ? '...' : 'Join'}</span>
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {subError && <p className="text-[11px] text-rose-400">{subError}</p>}
               </form>
             )}
           </div>
