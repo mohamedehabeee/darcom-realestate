@@ -81,7 +81,7 @@ export default function AdminDashboard({
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   const inputCls =
-    'w-full px-3 py-2 text-sm bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg focus:outline-none focus:border-indigo-600';
+    'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:outline-none focus:border-indigo-500';
 
   const stats = useMemo(() => {
     const total = units.length || 1;
@@ -236,11 +236,14 @@ export default function AdminDashboard({
     }
   };
 
+  const cardCls =
+    'bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors';
+
   return (
-    <section className="min-h-screen bg-slate-100 text-slate-900 py-8 px-4 sm:px-6">
+    <section className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-8 px-4 sm:px-6 transition-colors">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Top Executive Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -289,56 +292,62 @@ export default function AdminDashboard({
 
         {/* 4 Live Financial & Sales KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+          <div className={`${cardCls} flex items-start justify-between`}>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-400">Portfolio Valuation</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{fmtCompact(stats.totalVal)}</p>
-              <p className="text-xs text-indigo-600 font-semibold mt-1">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                {fmtCompact(stats.totalVal)}
+              </p>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold mt-1">
                 Avg {new Intl.NumberFormat('en-EG').format(stats.avgSqm)} EGP / m²
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600">
+            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+          <div className={`${cardCls} flex items-start justify-between`}>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-400">Closed & Reserved Sales</p>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">{fmtCompact(stats.closedVal)}</p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                {fmtCompact(stats.closedVal)}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {stats.sold} Sold • {stats.resv} Reserved ({stats.closeRate}% Close Rate)
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+          <div className={`${cardCls} flex items-start justify-between`}>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-400">Sale vs Rent Mix</p>
-              <p className="text-2xl font-bold text-slate-900 mt-1">
+              <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
                 {stats.buyPct}% Buy / {stats.rentPct}% Rent
               </p>
-              <p className="text-xs text-amber-600 font-semibold mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
                 Rent Roll: {fmtCompact(stats.rentVal)} / mo
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400">
               <PieChart className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-start justify-between">
+          <div className={`${cardCls} flex items-start justify-between`}>
             <div>
               <p className="text-xs font-semibold uppercase text-slate-400">Viewing Conversion</p>
-              <p className="text-2xl font-bold text-indigo-600 mt-1">{stats.bkRate}% Confirmed</p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                {stats.bkRate}% Confirmed
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {stats.confBk} of {bookings.length} Requests • {clients.length} Clients
               </p>
             </div>
-            <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+            <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400">
               <Building2 className="w-5 h-5" />
             </div>
           </div>
@@ -346,19 +355,18 @@ export default function AdminDashboard({
 
         {/* Live Interactive Visual Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Sales Pipeline Breakdown */}
-          <div className="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div className={`lg:col-span-6 ${cardCls} space-y-4`}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-indigo-500" />
                 <span>Live Sales Pipeline & Status Share</span>
               </h3>
-              <span className="text-xs font-semibold text-emerald-600">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 {stats.closeRate}% Sold/Reserved
               </span>
             </div>
 
-            <div className="h-4 w-full rounded-full bg-slate-100 overflow-hidden flex">
+            <div className="h-4 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
               <div
                 style={{ width: `${stats.soldPct}%` }}
                 className="bg-emerald-500 transition-all duration-500"
@@ -377,40 +385,45 @@ export default function AdminDashboard({
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
-              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
-                <span className="font-bold text-emerald-700">Sold ({stats.soldPct}%)</span>
-                <p className="text-slate-600 mt-0.5">{stats.sold} Properties</p>
+              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60">
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                  Sold ({stats.soldPct}%)
+                </span>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">{stats.sold} Properties</p>
               </div>
-              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-                <span className="font-bold text-amber-700">Reserved ({stats.resvPct}%)</span>
-                <p className="text-slate-600 mt-0.5">{stats.resv} Properties</p>
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">
+                <span className="font-bold text-amber-700 dark:text-amber-400">
+                  Reserved ({stats.resvPct}%)
+                </span>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">{stats.resv} Properties</p>
               </div>
-              <div className="p-2.5 rounded-lg bg-indigo-50 border border-indigo-200">
-                <span className="font-bold text-indigo-700">Available ({stats.availPct}%)</span>
-                <p className="text-slate-600 mt-0.5">{stats.avail} Properties</p>
+              <div className="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60">
+                <span className="font-bold text-indigo-700 dark:text-indigo-400">
+                  Available ({stats.availPct}%)
+                </span>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">{stats.avail} Properties</p>
               </div>
             </div>
           </div>
 
-          {/* City Distribution Bars */}
-          <div className="lg:col-span-6 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-3">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-indigo-600" />
+          <div className={`lg:col-span-6 ${cardCls} space-y-3`}>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-indigo-500" />
               <span>Regional Inventory Distribution</span>
             </h3>
             <div className="space-y-2.5">
               {stats.cities.map((c) => (
                 <div key={c.city} className="space-y-1">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-700">{c.city}</span>
-                    <span className="text-slate-500">
+                    <span className="text-slate-700 dark:text-slate-200">{c.city}</span>
+                    <span className="text-slate-500 dark:text-slate-400">
                       {c.count} units ({c.pct}%)
                     </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
                       style={{ width: `${c.pct}%` }}
-                      className="h-full bg-gradient-to-r from-indigo-600 to-emerald-500 rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
                     />
                   </div>
                 </div>
@@ -420,23 +433,23 @@ export default function AdminDashboard({
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 transition-colors">
           {tab === 'units' && (
             <div className="space-y-8">
               <form
                 onSubmit={handleSubmit}
-                className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4"
+                className="p-5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 space-y-4"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     {editingId ? (
                       <>
-                        <Pencil className="w-4 h-4 text-indigo-600" />
+                        <Pencil className="w-4 h-4 text-indigo-500" />
                         <span>Edit Property</span>
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4 text-indigo-600" />
+                        <Plus className="w-4 h-4 text-indigo-500" />
                         <span>Add New Property</span>
                       </>
                     )}
@@ -448,7 +461,7 @@ export default function AdminDashboard({
                         setEditingId(null);
                         setForm(EMPTY_FORM);
                       }}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                       <span>Cancel Edit</span>
@@ -520,7 +533,7 @@ export default function AdminDashboard({
                     className={inputCls}
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                    <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 px-2.5">
                       <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Beds</span>
                       <input
                         type="number"
@@ -531,7 +544,7 @@ export default function AdminDashboard({
                         className="w-full py-2 text-sm bg-transparent focus:outline-none"
                       />
                     </div>
-                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                    <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 px-2.5">
                       <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Baths</span>
                       <input
                         type="number"
@@ -544,7 +557,7 @@ export default function AdminDashboard({
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                    <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 px-2.5">
                       <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Down%</span>
                       <input
                         type="number"
@@ -556,7 +569,7 @@ export default function AdminDashboard({
                         className="w-full py-2 text-sm bg-transparent focus:outline-none"
                       />
                     </div>
-                    <div className="flex items-center border border-slate-300 rounded-lg bg-white px-2.5">
+                    <div className="flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 px-2.5">
                       <span className="text-[11px] font-semibold text-slate-400 mr-1.5">Years</span>
                       <input
                         type="number"
@@ -609,7 +622,7 @@ export default function AdminDashboard({
                       <img
                         src={form.image}
                         alt=""
-                        className="w-10 h-10 rounded-lg object-cover border border-slate-300 shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover border border-slate-300 dark:border-slate-700 shrink-0"
                       />
                     )}
                     <input
@@ -619,8 +632,8 @@ export default function AdminDashboard({
                       onChange={(e) => setForm({ ...form, image: e.target.value })}
                       className={inputCls}
                     />
-                    <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs font-semibold hover:border-indigo-600 cursor-pointer">
-                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                    <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold hover:border-indigo-500 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{uploading ? '...' : 'Upload'}</span>
                       <input
                         type="file"
@@ -641,12 +654,12 @@ export default function AdminDashboard({
                   <button
                     type="submit"
                     disabled={saving || uploading}
-                    className="lg:col-span-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer"
+                    className="lg:col-span-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors cursor-pointer"
                   >
                     {saving ? 'Saving...' : editingId ? 'Save All Property Changes' : 'Add Property'}
                   </button>
                 </div>
-                {uploadError && <p className="text-xs text-rose-600">{uploadError}</p>}
+                {uploadError && <p className="text-xs text-rose-500">{uploadError}</p>}
               </form>
 
               <div className="space-y-3">
@@ -664,7 +677,7 @@ export default function AdminDashboard({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                      <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
                         <th className="py-3 pr-4">Property</th>
                         <th className="py-3 px-4">Location</th>
                         <th className="py-3 px-4">Price & Plan</th>
@@ -675,9 +688,14 @@ export default function AdminDashboard({
                     </thead>
                     <tbody>
                       {tableUnits.map((u) => (
-                        <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-3 pr-4 font-semibold text-slate-900">{u.title}</td>
-                          <td className="py-3 px-4 text-slate-500">
+                        <tr
+                          key={u.id}
+                          className="border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        >
+                          <td className="py-3 pr-4 font-semibold text-slate-900 dark:text-white">
+                            {u.title}
+                          </td>
+                          <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
                             {u.compound}, {u.city}
                           </td>
                           <td className="py-3 px-4">
@@ -685,7 +703,7 @@ export default function AdminDashboard({
                               {new Intl.NumberFormat('en-EG').format(u.price)} EGP
                             </div>
                             {u.purpose === 'Buy' && (
-                              <div className="text-[11px] text-indigo-600 font-medium">
+                              <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
                                 {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
                               </div>
                             )}
@@ -694,7 +712,7 @@ export default function AdminDashboard({
                             <select
                               value={u.badge || ''}
                               onChange={(e) => onUpdateUnit(u.id, { badge: e.target.value })}
-                              className="px-2.5 py-1 text-xs rounded-md border border-slate-300 bg-white"
+                              className="px-2.5 py-1 text-xs rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
                             >
                               <option value="">None</option>
                               <option value="New">New</option>
@@ -708,10 +726,10 @@ export default function AdminDashboard({
                               onChange={(e) => onUpdateUnitStatus(u.id, e.target.value)}
                               className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
                                 u.status === 'Sold'
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
                                   : u.status === 'Reserved'
-                                  ? 'bg-amber-50 border-amber-300 text-amber-700'
-                                  : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                                  : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
                               }`}
                             >
                               <option value="Available">Available</option>
@@ -722,13 +740,13 @@ export default function AdminDashboard({
                           <td className="py-3 pl-4 text-right space-x-2">
                             <button
                               onClick={() => startEdit(u)}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"
+                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-500 cursor-pointer"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => onDeleteUnit(u.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -751,7 +769,7 @@ export default function AdminDashboard({
               ) : (
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
                       <th className="py-3 pr-4">Client</th>
                       <th className="py-3 px-4">Phone</th>
                       <th className="py-3 px-4">Property</th>
@@ -762,10 +780,12 @@ export default function AdminDashboard({
                   </thead>
                   <tbody>
                     {bookings.map((b) => (
-                      <tr key={b.id} className="border-b border-slate-100">
+                      <tr key={b.id} className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-3 pr-4 font-semibold">{b.name}</td>
                         <td className="py-3 px-4">{b.phone}</td>
-                        <td className="py-3 px-4 text-slate-500">{b.unitTitle}</td>
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
+                          {b.unitTitle}
+                        </td>
                         <td className="py-3 px-4">{b.date}</td>
                         <td className="py-3 px-4">
                           <button
@@ -777,8 +797,8 @@ export default function AdminDashboard({
                             }
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer ${
                               b.status === 'Confirmed'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-amber-100 text-amber-700'
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
                             }`}
                           >
                             {b.status === 'Confirmed' ? (
@@ -792,7 +812,7 @@ export default function AdminDashboard({
                         <td className="py-3 pl-4 text-right">
                           <button
                             onClick={() => onDeleteBooking(b.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -814,7 +834,7 @@ export default function AdminDashboard({
               ) : (
                 <table className="w-full text-left border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-xs uppercase text-slate-400">
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
                       <th className="py-3 pr-4">Name</th>
                       <th className="py-3 px-4">Email</th>
                       <th className="py-3 px-4">Mobile</th>
@@ -824,10 +844,10 @@ export default function AdminDashboard({
                   </thead>
                   <tbody>
                     {clients.map((c) => (
-                      <tr key={c.id} className="border-b border-slate-100">
+                      <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800">
                         <td className="py-3 pr-4 font-semibold">{c.name}</td>
-                        <td className="py-3 px-4 text-slate-500">{c.email}</td>
-                        <td className="py-3 px-4 font-semibold text-indigo-600">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400">{c.email}</td>
+                        <td className="py-3 px-4 font-semibold text-indigo-600 dark:text-indigo-400">
                           {c.phone || 'Not provided'}
                         </td>
                         <td className="py-3 px-4 text-slate-400">{c.updatedAt}</td>
@@ -837,7 +857,7 @@ export default function AdminDashboard({
                               href={`https://wa.me/2${c.phone}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+                              className="inline-flex px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
                             >
                               Chat
                             </a>
@@ -862,7 +882,7 @@ export default function AdminDashboard({
               className="space-y-4"
             >
               {settingsSaved && (
-                <div className="p-3 rounded-lg text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 flex items-center gap-2">
+                <div className="p-3 rounded-lg text-xs bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Website settings saved!</span>
                 </div>
@@ -913,7 +933,7 @@ export default function AdminDashboard({
               </div>
               <button
                 type="submit"
-                className="py-2.5 px-6 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wider cursor-pointer"
+                className="py-2.5 px-6 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold uppercase tracking-wider cursor-pointer"
               >
                 Save Website Settings
               </button>
