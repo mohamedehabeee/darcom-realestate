@@ -1,137 +1,261 @@
-import { MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { MapPin, Phone, Mail, ArrowUpRight, Send, CheckCircle2 } from 'lucide-react';
 
-export default function Footer({ onNavigate }) {
+export default function Footer({ onNavigate, onSecretTrigger }) {
+  const clicksRef = useRef({ count: 0, timer: null });
+  const [subEmail, setSubEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleLogoClick = () => {
+    clicksRef.current.count += 1;
+    clearTimeout(clicksRef.current.timer);
+    if (clicksRef.current.count >= 5) {
+      clicksRef.current.count = 0;
+      onSecretTrigger?.();
+      return;
+    }
+    clicksRef.current.timer = setTimeout(() => {
+      if (clicksRef.current.count < 5) {
+        onNavigate('home');
+      }
+      clicksRef.current.count = 0;
+    }, 450);
+  };
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (!subEmail.trim()) return;
+    setSubscribed(true);
+    setSubEmail('');
+  };
+
   return (
-    <footer className="bg-[#111111] text-white border-t border-white/10 mt-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 md:grid-cols-12 gap-10">
-        {/* Brand */}
-        <div className="md:col-span-5 space-y-4">
-          <button
-            onClick={() => onNavigate('home')}
-            className="darcom-logo text-2xl font-semibold tracking-[0.18em] text-white cursor-pointer"
-          >
-            DAR<span className="gold-part">COM</span>
-          </button>
-          <p className="text-sm text-white/65 leading-relaxed max-w-sm">
-            Modern Egyptian real estate platform built for clear pricing, side-by-side unit comparisons, and transparent installment planning.
-          </p>
-          <div className="flex items-center gap-2 text-xs text-[#C59B27]">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>New Cairo • Sheikh Zayed • New Capital • Maadi</span>
+    <footer className="relative bg-[#080808] text-white overflow-hidden mt-12">
+      {/* Animated Top Gold Laser Border */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#C59B27] to-transparent animate-pulse" />
+
+      {/* Subtle Ambient Gold Spotlight */}
+      <div
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[520px] h-[220px] rounded-full opacity-20 blur-3xl"
+        style={{ background: 'radial-gradient(circle, #C59B27 0%, transparent 70%)' }}
+      />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-12 space-y-12">
+        {/* Top Row: Glowing Brand + VIP Newsletter */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pb-10 border-b border-white/10">
+          <div className="lg:col-span-7 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#C59B27]/10 border border-[#C59B27]/40 text-[11px] uppercase tracking-[0.25em] text-[#C59B27]">
+              <span className="w-2 h-2 rounded-full bg-[#C59B27] animate-ping" />
+              <span>Egypt Luxury Real Estate</span>
+            </div>
+
+            <div>
+              <button
+                onClick={handleLogoClick}
+                className="footer-neon-logo text-4xl sm:text-5xl font-bold tracking-[0.22em] text-white cursor-pointer select-none"
+              >
+                DAR<span className="footer-gold-pulse">COM</span>
+              </button>
+            </div>
+
+            <p className="text-sm text-white/65 max-w-xl leading-relaxed">
+              Interactive 3D architectural tours, live installment modeling, and verified residences across New Cairo, Sheikh Zayed, New Capital, and the North Coast.
+            </p>
+          </div>
+
+          <div className="lg:col-span-5 bg-[#121212] border border-white/10 p-5 space-y-3">
+            <p className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
+              VIP Launch Alerts
+            </p>
+            <p className="text-xs text-white/65">
+              Get notified first when new standalone villas and seafront chalets are listed.
+            </p>
+            {subscribed ? (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 py-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>You are subscribed to DarCom VIP alerts.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  value={subEmail}
+                  onChange={(e) => setSubEmail(e.target.value)}
+                  placeholder="Enter your email..."
+                  className="flex-1 px-3 py-2.5 text-xs bg-black border border-white/15 text-white focus:outline-none focus:border-[#C59B27]"
+                />
+                <button
+                  type="submit"
+                  className="gold-sheen px-4 py-2.5 bg-[#C59B27] text-[#111111] text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Join</span>
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            )}
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="md:col-span-3 space-y-3">
-          <h4 className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
-            Explore
-          </h4>
-          <ul className="space-y-2 text-sm text-white/75">
-            <li>
-              <button
-                onClick={() => onNavigate('home')}
-                className="hover:text-[#C59B27] transition-colors cursor-pointer"
-              >
-                All Properties
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigate('saved')}
-                className="hover:text-[#C59B27] transition-colors cursor-pointer"
-              >
-                Saved Shortlist
-              </button>
-            </li>
-            <li>
-              <button
-                onClick={() => onNavigate('compare')}
-                className="hover:text-[#C59B27] transition-colors cursor-pointer"
-              >
-                Compare Units
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        {/* Contact & Social */}
-        <div className="md:col-span-4 space-y-4">
-          <h4 className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
-            Connect With Us
-          </h4>
-
-          <div className="space-y-2 text-sm text-white/75">
-            <a
-              href="tel:+201065347544"
-              className="flex items-center gap-2 hover:text-[#C59B27] transition-colors"
-            >
-              <Phone className="w-4 h-4 text-[#C59B27]" />
-              <span>+20 106 534 7544</span>
-            </a>
-            <a
-              href="mailto:info@darcom.eg"
-              className="flex items-center gap-2 hover:text-[#C59B27] transition-colors"
-            >
-              <Mail className="w-4 h-4 text-[#C59B27]" />
-              <span>info@darcom.eg</span>
-            </a>
+        {/* Middle Row: Links + Destinations + Glowing Social Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+          {/* Quick Navigation */}
+          <div className="md:col-span-3 space-y-3">
+            <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
+              Navigation
+            </h4>
+            <ul className="space-y-2.5 text-sm text-white/75">
+              <li>
+                <button
+                  onClick={() => onNavigate('home')}
+                  className="hover:text-[#C59B27] hover:translate-x-1 transition-all cursor-pointer"
+                >
+                  → All Properties
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('saved')}
+                  className="hover:text-[#C59B27] hover:translate-x-1 transition-all cursor-pointer"
+                >
+                  → Saved Shortlist
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate('compare')}
+                  className="hover:text-[#C59B27] hover:translate-x-1 transition-all cursor-pointer"
+                >
+                  → Compare Units (Up to 3)
+                </button>
+              </li>
+            </ul>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            {/* Instagram */}
-            <a
-              href="https://www.instagram.com/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Instagram"
-              className="group flex items-center gap-2 px-3.5 py-2 border border-white/15 bg-white/5 hover:border-[#C59B27] hover:bg-[#C59B27]/10 transition-all"
-            >
-              <svg
-                className="w-4 h-4 text-white group-hover:text-[#C59B27] transition-colors"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {/* Direct Contact */}
+          <div className="md:col-span-4 space-y-3">
+            <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
+              Direct Advisory
+            </h4>
+            <div className="space-y-2.5 text-sm text-white/75">
+              <a
+                href="tel:+201065347544"
+                className="flex items-center gap-2.5 hover:text-[#C59B27] transition-colors"
               >
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-              </svg>
-              <span className="text-xs font-medium">Instagram</span>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </a>
+                <Phone className="w-4 h-4 text-[#C59B27]" />
+                <span>+20 106 534 7544</span>
+              </a>
+              <a
+                href="mailto:info@darcom.eg"
+                className="flex items-center gap-2.5 hover:text-[#C59B27] transition-colors"
+              >
+                <Mail className="w-4 h-4 text-[#C59B27]" />
+                <span>info@darcom.eg</span>
+              </a>
+              <div className="flex items-center gap-2.5 text-xs text-white/60 pt-1">
+                <MapPin className="w-4 h-4 text-[#C59B27] shrink-0" />
+                <span>New Cairo • Sheikh Zayed • New Capital • North Coast</span>
+              </div>
+            </div>
+          </div>
 
-            {/* Facebook */}
-            <a
-              href="https://www.facebook.com/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Facebook"
-              className="group flex items-center gap-2 px-3.5 py-2 border border-white/15 bg-white/5 hover:border-[#C59B27] hover:bg-[#C59B27]/10 transition-all"
-            >
-              <svg
-                className="w-4 h-4 text-white group-hover:text-[#C59B27] transition-colors"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {/* Glowing Social Media Cards */}
+          <div className="md:col-span-5 space-y-3">
+            <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
+              Follow Our Channels
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Instagram Card */}
+              <a
+                href="https://www.instagram.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="group relative p-3.5 bg-[#121212] border border-white/15 hover:border-[#E1306C] hover:shadow-[0_0_25px_rgba(225,48,108,0.35)] transition-all duration-300 flex items-center justify-between"
               >
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-              </svg>
-              <span className="text-xs font-medium">Facebook</span>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-            </a>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white group-hover:text-[#E1306C] transition-colors">
+                      Instagram
+                    </p>
+                    <p className="text-[11px] text-white/50">@darcom.eg</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+              </a>
+
+              {/* Facebook Card */}
+              <a
+                href="https://www.facebook.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="group relative p-3.5 bg-[#121212] border border-white/15 hover:border-[#1877F2] hover:shadow-[0_0_25px_rgba(24,119,242,0.35)] transition-all duration-300 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#1877F2] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white group-hover:text-[#1877F2] transition-colors">
+                      Facebook
+                    </p>
+                    <p className="text-[11px] text-white/50">DarCom Official</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10 py-4 text-center text-xs text-white/50">
-        DARCOM Real Estate © {new Date().getFullYear()} — All Rights Reserved.
+      {/* Bottom Copyright Bar */}
+      <div className="border-t border-white/10 bg-black/60 py-4 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs text-white/50">
+          <span>DARCOM Real Estate © {new Date().getFullYear()} — All Rights Reserved.</span>
+          <span className="text-[#C59B27]/80">Designed for Modern Living</span>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes neonGoldPulse {
+          0%, 100% {
+            text-shadow: 0 0 10px rgba(197, 155, 39, 0.35), 0 0 24px rgba(197, 155, 39, 0.15);
+            filter: brightness(1);
+          }
+          50% {
+            text-shadow: 0 0 22px rgba(255, 230, 128, 0.95), 0 0 45px rgba(197, 155, 39, 0.65);
+            filter: brightness(1.25);
+          }
+        }
+        .footer-neon-logo {
+          animation: neonGoldPulse 2.8s ease-in-out infinite;
+        }
+        .footer-gold-pulse {
+          color: #C59B27;
+        }
+      `}</style>
     </footer>
   );
 }
