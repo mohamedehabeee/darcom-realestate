@@ -8,13 +8,13 @@ export default function FilterBar({ filters, onChange, onReset }) {
     <div className="p-4 sm:p-5 bg-white dark:bg-[#161616] border border-black/10 dark:border-white/10">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
         <div className="relative lg:col-span-2">
-          <Search className="w-4 h-4 text-[#111111]/40 dark:text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#111111]/40 dark:text-white/40 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Search by compound or property name..."
             value={filters.search}
             onChange={(e) => onChange('search', e.target.value)}
-            className={`${inputStyle} pl-9`}
+            className={`${inputStyle} ps-9`}
           />
         </div>
 

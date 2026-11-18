@@ -33,6 +33,15 @@ function formatShortPrice(price, purpose) {
   return `${Math.round(price / 1000)}K`;
 }
 
+function hashUnitId(id) {
+  const str = String(id || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
 export default function PropertyMap({ units, onSelectUnit }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -44,10 +53,11 @@ export default function PropertyMap({ units, onSelectUnit }) {
   const [activeUnitId, setActiveUnitId] = useState(null);
 
   const unitsWithCoords = useMemo(() => {
-    return units.map((unit, idx) => {
+    return units.map((unit) => {
       const base = CITY_COORDS[unit.city] || [30.044, 31.235];
-      const offsetLat = ((idx % 4) - 1.5) * 0.014;
-      const offsetLng = ((Math.floor(idx / 4) % 4) - 1.5) * 0.018;
+      const h = hashUnitId(unit.id);
+      const offsetLat = ((h % 7) - 3) * 0.009;
+      const offsetLng = (((h >> 3) % 7) - 3) * 0.012;
       return {
         ...unit,
         lat: base[0] + offsetLat,

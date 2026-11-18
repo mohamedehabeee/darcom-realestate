@@ -23,6 +23,24 @@ export const DEFAULT_SITE_SETTINGS = {
   showFeaturedSlider: true,
 };
 
+function extractStorageFileName(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return null;
+  const marker = '/storage/v1/object/public/property-images/';
+  const idx = imageUrl.indexOf(marker);
+  if (idx === -1) return null;
+  return decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
+}
+
+async function removeStorageImageIfOwned(imageUrl) {
+  const fileName = extractStorageFileName(imageUrl);
+  if (!fileName) return;
+  try {
+    await supabase.storage.from('property-images').remove([fileName]);
+  } catch {
+    // Ignore storage cleanup errors
+  }
+}
+
 function mapUnitFromDb(row) {
   return {
     id: row.id,
@@ -93,6 +111,16 @@ export async function addUnit(unitData) {
 }
 
 export async function updateUnit(unitId, updatedData) {
+  let oldImage = null;
+  if (updatedData.image !== undefined) {
+    const { data: existing } = await supabase
+      .from('units')
+      .select('image')
+      .eq('id', unitId)
+      .maybeSingle();
+    oldImage = existing?.image || null;
+  }
+
   const payload = {};
   if (updatedData.title !== undefined) payload.title = updatedData.title;
   if (updatedData.city !== undefined) payload.city = updatedData.city;
@@ -121,6 +149,11 @@ export async function updateUnit(unitId, updatedData) {
 
   const { error } = await supabase.from('units').update(payload).eq('id', unitId);
   if (error) throw error;
+
+  if (oldImage && updatedData.image && oldImage !== updatedData.image) {
+    await removeStorageImageIfOwned(oldImage);
+  }
+
   return getUnits();
 }
 
@@ -131,8 +164,19 @@ export async function updateUnitStatus(unitId, status) {
 }
 
 export async function deleteUnit(unitId) {
+  const { data: existing } = await supabase
+    .from('units')
+    .select('image')
+    .eq('id', unitId)
+    .maybeSingle();
+
   const { error } = await supabase.from('units').delete().eq('id', unitId);
   if (error) throw error;
+
+  if (existing?.image) {
+    await removeStorageImageIfOwned(existing.image);
+  }
+
   return getUnits();
 }
 
@@ -489,17 +533,35 @@ export async function getCurrentUser() {
 
 export async function registerUser({ name, email, phone, password }) {
   const cleanEmail = email.trim().toLowerCase();
+  const cleanName = name.trim();
+  const cleanPhone = (phone || '').trim();
+
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password,
     options: {
       data: {
-        name: name.trim(),
-        phone: (phone || '').trim(),
+        name: cleanName,
+        phone: cleanPhone,
       },
     },
   });
   if (error) throw error;
+
+  if (data?.user?.id) {
+    try {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // Handled by DB trigger or profile update fallback
+    }
+  }
+
   return formatUserWithRole(data.user);
 }
 

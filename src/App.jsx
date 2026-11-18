@@ -287,9 +287,19 @@ export default function App() {
   };
 
   const handleSelectDeveloper = (dev) => {
+    const keyword = dev?.filterKeyword || '';
+    const hasKeywordMatch =
+      keyword &&
+      units.some(
+        (u) =>
+          u.compound.toLowerCase().includes(keyword.toLowerCase()) ||
+          u.title.toLowerCase().includes(keyword.toLowerCase())
+      );
+
     setFilters({
       ...DEFAULT_FILTERS,
-      city: dev.city || 'All',
+      search: hasKeywordMatch ? keyword : '',
+      city: hasKeywordMatch ? 'All' : dev?.city || 'All',
     });
     listingsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -593,14 +603,7 @@ export default function App() {
         )}
       </main>
 
-      <Footer
-        siteSettings={siteSettings}
-        onNavigate={handleNavigate}
-        onSecretTrigger={() => {
-          setActiveView('admin');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
+      <Footer siteSettings={siteSettings} onNavigate={handleNavigate} />
 
       {selectedUnit && (
         <UnitDetails
