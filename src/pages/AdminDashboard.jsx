@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { Plus, Trash2, Check, Clock, Pencil, X, RotateCcw, Upload } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Check,
+  Clock,
+  Pencil,
+  X,
+  RotateCcw,
+  Upload,
+  Users,
+  Settings,
+  CheckCircle2,
+} from 'lucide-react';
 import { uploadPropertyImage } from '../services/realEstateService';
 
 const EMPTY_FORM = {
@@ -12,14 +24,21 @@ const EMPTY_FORM = {
   area: '',
   bedrooms: '3',
   bathrooms: '2',
+  delivery: 'Ready to Move',
+  downPaymentPercent: '15',
+  installmentYears: '7',
   status: 'Available',
   badge: '',
   image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+  featuresText: 'Private Garden, 24/7 Security, Covered Parking',
+  description: '',
 };
 
 export default function AdminDashboard({
   units,
   bookings,
+  clients = [],
+  siteSettings,
   onAddUnit,
   onUpdateUnit,
   onUpdateUnitStatus,
@@ -27,6 +46,7 @@ export default function AdminDashboard({
   onResetUnits,
   onUpdateBookingStatus,
   onDeleteBooking,
+  onSaveSiteSettings,
 }) {
   const [tab, setTab] = useState('units');
   const [form, setForm] = useState(EMPTY_FORM);
@@ -34,6 +54,17 @@ export default function AdminDashboard({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  const [settingsForm, setSettingsForm] = useState(() => ({
+    phone: siteSettings?.phone || '+20 106 534 7544',
+    whatsapp: siteSettings?.whatsapp || '201065347544',
+    email: siteSettings?.email || 'info@darcom.eg',
+    instagram: siteSettings?.instagram || 'https://www.instagram.com/',
+    facebook: siteSettings?.facebook || 'https://www.facebook.com/',
+    heroTitle: siteSettings?.heroTitle || 'Find Your Next Home With Clear Numbers.',
+    heroSubtitle: siteSettings?.heroSubtitle || '',
+  }));
+  const [settingsSaved, setSettingsSaved] = useState(false);
 
   const inputStyle =
     'w-full px-3 py-2 text-sm bg-white border border-black/20 text-[#111111] placeholder:text-neutral-400 focus:outline-none focus:border-[#C59B27]';
@@ -70,9 +101,14 @@ export default function AdminDashboard({
       area: String(unit.area || ''),
       bedrooms: String(unit.bedrooms ?? 0),
       bathrooms: String(unit.bathrooms ?? 1),
+      delivery: unit.delivery || 'Ready to Move',
+      downPaymentPercent: String(unit.downPaymentPercent ?? 15),
+      installmentYears: String(unit.installmentYears ?? 7),
       status: unit.status || 'Available',
       badge: unit.badge || '',
       image: unit.image || EMPTY_FORM.image,
+      featuresText: Array.isArray(unit.features) ? unit.features.join(', ') : '',
+      description: unit.description || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -88,16 +124,30 @@ export default function AdminDashboard({
     setSaving(true);
     setUploadError('');
     try {
+      const parsedFeatures = form.featuresText
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       const payload = {
-        ...form,
+        title: form.title,
+        city: form.city,
+        compound: form.compound,
+        type: form.type,
+        purpose: form.purpose,
         price: Number(form.price),
         area: Number(form.area),
         bedrooms: Number(form.bedrooms),
         bathrooms: Number(form.bathrooms),
-        delivery: 'Ready to Move',
-        downPaymentPercent: form.purpose === 'Buy' ? 15 : 0,
-        installmentYears: form.purpose === 'Buy' ? 7 : 1,
-        description: `${form.type} in ${form.compound}, ${form.city}.`,
+        delivery: form.delivery,
+        status: form.status,
+        badge: form.badge,
+        downPaymentPercent: form.purpose === 'Buy' ? Number(form.downPaymentPercent) : 0,
+        installmentYears: form.purpose === 'Buy' ? Number(form.installmentYears) : 1,
+        image: form.image,
+        features: parsedFeatures.length ? parsedFeatures : ['24/7 Security', 'Parking'],
+        description:
+          form.description.trim() || `${form.type} in ${form.compound}, ${form.city}.`,
       };
 
       if (editingId) {
@@ -114,6 +164,13 @@ export default function AdminDashboard({
     }
   };
 
+  const handleSaveSettingsSubmit = async (e) => {
+    e.preventDefault();
+    setSettingsSaved(false);
+    await onSaveSiteSettings(settingsForm);
+    setSettingsSaved(true);
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       <div className="bg-white text-[#111111] border border-black/15 p-6 space-y-6">
@@ -128,17 +185,17 @@ export default function AdminDashboard({
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={onResetUnits}
-              title="Seed / restore default 12 properties in Supabase"
+              title="Seed / restore default 12 properties"
               className="inline-flex items-center gap-1.5 px-3 py-2 border border-black/15 text-xs font-medium text-[#111111] hover:border-[#C59B27] transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-[#C59B27]" />
               <span>Reset / Seed Data</span>
             </button>
 
-            <div className="flex border border-black/15 text-xs font-semibold">
+            <div className="flex flex-wrap border border-black/15 text-xs font-semibold">
               <button
                 onClick={() => setTab('units')}
-                className={`px-4 py-2 cursor-pointer ${
+                className={`px-3.5 py-2 cursor-pointer ${
                   tab === 'units' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
                 }`}
               >
@@ -146,11 +203,29 @@ export default function AdminDashboard({
               </button>
               <button
                 onClick={() => setTab('bookings')}
-                className={`px-4 py-2 cursor-pointer ${
+                className={`px-3.5 py-2 cursor-pointer ${
                   tab === 'bookings' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
                 }`}
               >
-                Viewing Requests ({bookings.length})
+                Viewings ({bookings.length})
+              </button>
+              <button
+                onClick={() => setTab('clients')}
+                className={`inline-flex items-center gap-1 px-3.5 py-2 cursor-pointer ${
+                  tab === 'clients' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-[#C59B27]" />
+                <span>Clients ({clients.length})</span>
+              </button>
+              <button
+                onClick={() => setTab('settings')}
+                className={`inline-flex items-center gap-1 px-3.5 py-2 cursor-pointer ${
+                  tab === 'settings' ? 'bg-[#111111] text-white' : 'bg-white text-[#111111]'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5 text-[#C59B27]" />
+                <span>Site Settings</span>
               </button>
             </div>
           </div>
@@ -176,7 +251,7 @@ export default function AdminDashboard({
           </div>
         </div>
 
-        {tab === 'units' ? (
+        {tab === 'units' && (
           <div className="space-y-8">
             <form onSubmit={handleSubmit} className="p-5 bg-[#FAF8F5] border border-black/10 space-y-4">
               <div className="flex items-center justify-between">
@@ -184,7 +259,7 @@ export default function AdminDashboard({
                   {editingId ? (
                     <>
                       <Pencil className="w-4 h-4 text-[#C59B27]" />
-                      <span>Edit Property</span>
+                      <span>Edit Property (Full Control)</span>
                     </>
                   ) : (
                     <>
@@ -269,6 +344,8 @@ export default function AdminDashboard({
                   onChange={(e) => setForm({ ...form, area: e.target.value })}
                   className={inputStyle}
                 />
+
+                {/* Beds & Baths */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
                     <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Beds</span>
@@ -293,6 +370,45 @@ export default function AdminDashboard({
                     />
                   </div>
                 </div>
+
+                {/* Down Payment % & Installment Years */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
+                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Down%</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="90"
+                      required
+                      value={form.downPaymentPercent}
+                      onChange={(e) => setForm({ ...form, downPaymentPercent: e.target.value })}
+                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center border border-black/20 bg-white px-2.5 focus-within:border-[#C59B27]">
+                    <span className="text-[11px] font-semibold text-neutral-500 mr-1.5">Years</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="15"
+                      required
+                      value={form.installmentYears}
+                      onChange={(e) => setForm({ ...form, installmentYears: e.target.value })}
+                      className="w-full py-2 text-sm bg-transparent text-[#111111] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <select
+                  value={form.delivery}
+                  onChange={(e) => setForm({ ...form, delivery: e.target.value })}
+                  className={inputStyle}
+                >
+                  <option value="Ready to Move">Delivery: Ready to Move</option>
+                  <option value="Under Construction">Delivery: Under Construction</option>
+                  <option value="2027 Delivery">Delivery: 2027</option>
+                </select>
+
                 <select
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
@@ -302,6 +418,7 @@ export default function AdminDashboard({
                   <option value="Reserved">Status: Reserved</option>
                   <option value="Sold">Status: Sold</option>
                 </select>
+
                 <select
                   value={form.badge}
                   onChange={(e) => setForm({ ...form, badge: e.target.value })}
@@ -313,7 +430,15 @@ export default function AdminDashboard({
                   <option value="Exclusive">Badge: Exclusive</option>
                 </select>
 
-                {/* Image URL + Supabase Storage Upload */}
+                {/* Features & Image */}
+                <input
+                  type="text"
+                  placeholder="Features (comma separated: Pool, Smart Home...)"
+                  value={form.featuresText}
+                  onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
+                  className={`${inputStyle} sm:col-span-2`}
+                />
+
                 <div className="sm:col-span-2 flex items-center gap-2">
                   {form.image && (
                     <img
@@ -342,12 +467,20 @@ export default function AdminDashboard({
                   </label>
                 </div>
 
+                <textarea
+                  rows="2"
+                  placeholder="Full Property Description..."
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className={`${inputStyle} lg:col-span-4`}
+                />
+
                 <button
                   type="submit"
                   disabled={saving || uploading}
                   className="lg:col-span-4 py-2.5 px-4 bg-[#111111] text-white text-sm font-semibold hover:bg-[#C59B27] hover:text-[#111111] disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Property'}
+                  {saving ? 'Saving...' : editingId ? 'Save All Property Changes' : 'Add Property'}
                 </button>
               </div>
 
@@ -360,7 +493,7 @@ export default function AdminDashboard({
                   <tr className="border-b border-black/15 text-xs uppercase text-neutral-500">
                     <th className="py-3 pr-4">Property</th>
                     <th className="py-3 px-4">Location</th>
-                    <th className="py-3 px-4">Price</th>
+                    <th className="py-3 px-4">Price & Plan</th>
                     <th className="py-3 px-4">Badge</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 pl-4 text-right">Actions</th>
@@ -374,7 +507,12 @@ export default function AdminDashboard({
                         {u.compound}, {u.city}
                       </td>
                       <td className="py-3 px-4">
-                        {new Intl.NumberFormat('en-EG').format(u.price)} EGP
+                        <div>{new Intl.NumberFormat('en-EG').format(u.price)} EGP</div>
+                        {u.purpose === 'Buy' && (
+                          <div className="text-[11px] text-[#C59B27]">
+                            {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <select
@@ -421,7 +559,9 @@ export default function AdminDashboard({
               </table>
             </div>
           </div>
-        ) : (
+        )}
+
+        {tab === 'bookings' && (
           <div className="overflow-x-auto">
             {bookings.length === 0 ? (
               <p className="py-10 text-center text-sm text-neutral-500">
@@ -483,6 +623,143 @@ export default function AdminDashboard({
               </table>
             )}
           </div>
+        )}
+
+        {tab === 'clients' && (
+          <div className="overflow-x-auto">
+            {clients.length === 0 ? (
+              <p className="py-10 text-center text-sm text-neutral-500">
+                No registered clients found yet.
+              </p>
+            ) : (
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-black/15 text-xs uppercase text-neutral-500">
+                    <th className="py-3 pr-4">Client Name</th>
+                    <th className="py-3 px-4">Email</th>
+                    <th className="py-3 px-4">Mobile Number</th>
+                    <th className="py-3 px-4">Last Updated</th>
+                    <th className="py-3 pl-4 text-right">Contact</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((c) => (
+                    <tr key={c.id} className="border-b border-black/5">
+                      <td className="py-3 pr-4 font-medium">{c.name}</td>
+                      <td className="py-3 px-4 text-neutral-600">{c.email}</td>
+                      <td className="py-3 px-4 font-semibold text-[#C59B27]">
+                        {c.phone || 'Not provided'}
+                      </td>
+                      <td className="py-3 px-4 text-neutral-500">{c.updatedAt}</td>
+                      <td className="py-3 pl-4 text-right">
+                        {c.phone && (
+                          <a
+                            href={`https://wa.me/2${c.phone}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex px-3 py-1 bg-[#111111] text-[#C59B27] text-xs font-semibold hover:bg-[#C59B27] hover:text-[#111111] transition-colors"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {tab === 'settings' && (
+          <form onSubmit={handleSaveSettingsSubmit} className="p-5 bg-[#FAF8F5] border border-black/10 space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Settings className="w-4 h-4 text-[#C59B27]" />
+              <span>Global Website & Contact Settings</span>
+            </h3>
+
+            {settingsSaved && (
+              <div className="p-3 text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Website settings updated live!</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1">Display Phone</label>
+                <input
+                  type="text"
+                  value={settingsForm.phone}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">WhatsApp Number (with 20)</label>
+                <input
+                  type="text"
+                  value={settingsForm.whatsapp}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Official Email</label>
+                <input
+                  type="email"
+                  value={settingsForm.email}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Instagram Link</label>
+                <input
+                  type="text"
+                  value={settingsForm.instagram}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, instagram: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Facebook Link</label>
+                <input
+                  type="text"
+                  value={settingsForm.facebook}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, facebook: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Hero Main Headline</label>
+                <input
+                  type="text"
+                  value={settingsForm.heroTitle}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, heroTitle: e.target.value })}
+                  className={inputStyle}
+                />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <label className="block text-xs font-semibold mb-1">Hero Description</label>
+                <textarea
+                  rows="2"
+                  value={settingsForm.heroSubtitle}
+                  onChange={(e) =>
+                    setSettingsForm({ ...settingsForm, heroSubtitle: e.target.value })
+                  }
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="py-2.5 px-6 bg-[#111111] text-[#C59B27] text-xs font-semibold uppercase tracking-widest hover:bg-[#C59B27] hover:text-[#111111] transition-colors cursor-pointer"
+            >
+              Save Website Settings
+            </button>
+          </form>
         )}
       </div>
     </section>

@@ -3,6 +3,17 @@ import { MOCK_UNITS } from '../data/mockUnits';
 
 const SAVED_KEY = 'darcom_saved_v1';
 
+export const DEFAULT_SITE_SETTINGS = {
+  phone: '+20 106 534 7544',
+  whatsapp: '201065347544',
+  email: 'info@darcom.eg',
+  instagram: 'https://www.instagram.com/',
+  facebook: 'https://www.facebook.com/',
+  heroTitle: 'Find Your Next Home With Clear Numbers.',
+  heroSubtitle:
+    'Explore verified villas, apartments, and offices across New Cairo, Sheikh Zayed, and the New Capital — compare units side-by-side and calculate monthly installments before booking a viewing.',
+};
+
 function mapUnitFromDb(row) {
   return {
     id: row.id,
@@ -45,7 +56,9 @@ function mapUnitToDb(unit) {
     installment_years: Number(unit.installmentYears ?? 7),
     image: unit.image,
     gallery: unit.gallery?.length ? unit.gallery : [unit.image],
-    features: unit.features?.length ? unit.features : ['24/7 Security', 'Parking'],
+    features: Array.isArray(unit.features) && unit.features.length
+      ? unit.features
+      : ['24/7 Security', 'Parking'],
     description: unit.description || '',
   };
 }
@@ -57,11 +70,7 @@ export async function getUnits() {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching units:', error);
-    return MOCK_UNITS;
-  }
-  if (!data || data.length === 0) {
+  if (error || !data || data.length === 0) {
     return MOCK_UNITS;
   }
   return data.map(mapUnitFromDb);
@@ -84,12 +93,20 @@ export async function updateUnit(unitId, updatedData) {
   if (updatedData.area !== undefined) payload.area = Number(updatedData.area);
   if (updatedData.bedrooms !== undefined) payload.bedrooms = Number(updatedData.bedrooms);
   if (updatedData.bathrooms !== undefined) payload.bathrooms = Number(updatedData.bathrooms);
+  if (updatedData.delivery !== undefined) payload.delivery = updatedData.delivery;
   if (updatedData.status !== undefined) payload.status = updatedData.status;
   if (updatedData.badge !== undefined) payload.badge = updatedData.badge;
+  if (updatedData.downPaymentPercent !== undefined) {
+    payload.down_payment_percent = Number(updatedData.downPaymentPercent);
+  }
+  if (updatedData.installmentYears !== undefined) {
+    payload.installment_years = Number(updatedData.installmentYears);
+  }
   if (updatedData.image !== undefined) {
     payload.image = updatedData.image;
     payload.gallery = [updatedData.image];
   }
+  if (updatedData.features !== undefined) payload.features = updatedData.features;
   if (updatedData.description !== undefined) payload.description = updatedData.description;
 
   const { error } = await supabase.from('units').update(payload).eq('id', unitId);
@@ -201,6 +218,59 @@ export async function deleteBooking(bookingId) {
   return getBookings();
 }
 
+// Registered Clients (from profiles table)
+export async function getRegisteredClients() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('updated_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((p) => ({
+    id: p.id,
+    name: p.name || 'Client',
+    email: p.email || '',
+    phone: p.phone || '',
+    updatedAt: p.updated_at ? new Date(p.updated_at).toLocaleDateString('en-EG') : '—',
+  }));
+}
+
+// Site Settings
+export async function getSiteSettings() {
+  const { data, error } = await supabase
+    .from('site_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error || !data) return DEFAULT_SITE_SETTINGS;
+  return {
+    phone: data.phone || DEFAULT_SITE_SETTINGS.phone,
+    whatsapp: data.whatsapp || DEFAULT_SITE_SETTINGS.whatsapp,
+    email: data.email || DEFAULT_SITE_SETTINGS.email,
+    instagram: data.instagram || DEFAULT_SITE_SETTINGS.instagram,
+    facebook: data.facebook || DEFAULT_SITE_SETTINGS.facebook,
+    heroTitle: data.hero_title || DEFAULT_SITE_SETTINGS.heroTitle,
+    heroSubtitle: data.hero_subtitle || DEFAULT_SITE_SETTINGS.heroSubtitle,
+  };
+}
+
+export async function updateSiteSettings(settings) {
+  const { error } = await supabase.from('site_settings').upsert({
+    id: 1,
+    phone: settings.phone,
+    whatsapp: settings.whatsapp,
+    email: settings.email,
+    instagram: settings.instagram,
+    facebook: settings.facebook,
+    hero_title: settings.heroTitle,
+    hero_subtitle: settings.heroSubtitle,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+  return getSiteSettings();
+}
+
 // Authentication (Zero-Trust Role Check via Supabase DB)
 async function formatUserWithRole(user) {
   if (!user) return null;
@@ -279,7 +349,7 @@ export async function logoutUser() {
   await supabase.auth.signOut();
 }
 
-// Multi-Factor Authentication (TOTP Authenticator App)
+// Multi-Factor Authentication
 export async function getMfaStatus() {
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const { data: factors } = await supabase.auth.mfa.listFactors();
@@ -293,9 +363,15 @@ export async function getMfaStatus() {
 }
 
 export async function enrollAdminMfa() {
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const unverified = (factors?.all || []).filter((f) => f.status === 'unverified');
+  for (const f of unverified) {
+    await supabase.auth.mfa.unenroll({ factorId: f.id });
+  }
+
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: 'DarCom Admin Authenticator',
+    friendlyName: `DarCom Admin ${Date.now()}`,
   });
   if (error) throw error;
   return data;

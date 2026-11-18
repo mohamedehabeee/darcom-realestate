@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutGrid, Map as MapIcon } from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import {
+  DEFAULT_SITE_SETTINGS,
   getUnits,
   addUnit,
   updateUnit,
@@ -14,6 +15,9 @@ import {
   createBooking,
   updateBookingStatus,
   deleteBooking,
+  getRegisteredClients,
+  getSiteSettings,
+  updateSiteSettings,
   getCurrentUser,
   getMfaStatus,
   logoutUser,
@@ -38,7 +42,6 @@ import AdminMfaGate from './components/AdminMfaGate';
 import SavedUnits from './pages/SavedUnits';
 import AdminDashboard from './pages/AdminDashboard';
 import Footer from './components/Footer';
-import ScrollToTop from './components/ScrollToTop';
 
 const DEFAULT_FILTERS = {
   search: '',
@@ -68,6 +71,8 @@ export default function App() {
   const [savedIds, setSavedIds] = useState(() => getSavedIds());
   const [compareIds, setCompareIds] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [currentUser, setCurrentUser] = useState(null);
   const [mfaVerified, setMfaVerified] = useState(false);
 
@@ -89,14 +94,25 @@ export default function App() {
 
   useEffect(() => {
     async function loadInitialData() {
-      const [loadedUnits, user] = await Promise.all([getUnits(), getCurrentUser()]);
+      const [loadedUnits, user, loadedSettings] = await Promise.all([
+        getUnits(),
+        getCurrentUser(),
+        getSiteSettings(),
+      ]);
       setUnits(loadedUnits);
       setCurrentUser(user);
+      setSiteSettings(loadedSettings);
+
       if (user?.role === 'admin') {
         const mfa = await getMfaStatus();
         if (mfa.currentLevel === 'aal2') {
           setMfaVerified(true);
-          setBookings(await getBookings());
+          const [loadedBookings, loadedClients] = await Promise.all([
+            getBookings(),
+            getRegisteredClients(),
+          ]);
+          setBookings(loadedBookings);
+          setClients(loadedClients);
         }
       }
     }
@@ -238,11 +254,17 @@ export default function App() {
     setBookings(updated);
   };
 
+  const handleSaveSiteSettings = async (newSettings) => {
+    const updated = await updateSiteSettings(newSettings);
+    setSiteSettings(updated);
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     setCurrentUser(null);
     setMfaVerified(false);
     setBookings([]);
+    setClients([]);
     if (activeView === 'admin') {
       setActiveView('home');
     }
@@ -369,6 +391,8 @@ export default function App() {
             <AdminDashboard
               units={units}
               bookings={bookings}
+              clients={clients}
+              siteSettings={siteSettings}
               onAddUnit={handleAddUnit}
               onUpdateUnit={handleUpdateUnit}
               onUpdateUnitStatus={handleUpdateUnitStatus}
@@ -376,6 +400,7 @@ export default function App() {
               onResetUnits={handleResetUnits}
               onUpdateBookingStatus={handleUpdateBookingStatus}
               onDeleteBooking={handleDeleteBooking}
+              onSaveSiteSettings={handleSaveSiteSettings}
             />
           ) : (
             <AdminMfaGate
@@ -383,7 +408,12 @@ export default function App() {
               onAdminAuthenticated={(user) => setCurrentUser(user)}
               onVerified={async () => {
                 setMfaVerified(true);
-                setBookings(await getBookings());
+                const [loadedBookings, loadedClients] = await Promise.all([
+                  getBookings(),
+                  getRegisteredClients(),
+                ]);
+                setBookings(loadedBookings);
+                setClients(loadedClients);
               }}
               onCancel={() => setActiveView('home')}
             />
@@ -391,8 +421,13 @@ export default function App() {
         )}
       </main>
 
-      <Footer onNavigate={handleNavigate} />
-      <ScrollToTop />
+      <Footer
+        onNavigate={handleNavigate}
+        onSecretTrigger={() => {
+          setActiveView('admin');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {selectedUnit && (
         <UnitDetails
