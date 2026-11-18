@@ -8,7 +8,26 @@
     background-color: #FAF8F5;
     color: #111111;
     font-family: system-ui, -apple-system, sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: #C59B27 #111111;
   }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C59B27;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #dfb334;
 }
 
 .darcom-logo {
