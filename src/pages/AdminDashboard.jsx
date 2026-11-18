@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -94,6 +94,28 @@ export default function AdminDashboard({
     showFeaturedSlider: siteSettings?.showFeaturedSlider ?? true,
   }));
   const [settingsSaved, setSettingsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!siteSettings) return;
+    setSettingsForm({
+      phone: siteSettings.phone || '+20 106 534 7544',
+      whatsapp: siteSettings.whatsapp || '201065347544',
+      email: siteSettings.email || 'info@darcom.eg',
+      instagram: siteSettings.instagram || 'https://www.instagram.com/',
+      facebook: siteSettings.facebook || 'https://www.facebook.com/',
+      heroBadge: siteSettings.heroBadge || 'Egypt Real Estate Marketplace',
+      heroTitle: siteSettings.heroTitle || 'Find Your Next Home With Clear Numbers.',
+      heroSubtitle: siteSettings.heroSubtitle || '',
+      heroCta: siteSettings.heroCta || 'Explore Properties',
+      footerDesc: siteSettings.footerDesc || '',
+      locationsText:
+        siteSettings.locationsText || 'New Cairo • Sheikh Zayed • New Capital • North Coast',
+      showVideoSection: siteSettings.showVideoSection ?? true,
+      showLocationsSection: siteSettings.showLocationsSection ?? true,
+      showWhyDarcomSection: siteSettings.showWhyDarcomSection ?? true,
+      showFeaturedSlider: siteSettings.showFeaturedSlider ?? true,
+    });
+  }, [siteSettings]);
 
   const inputCls =
     'w-full px-3 py-2 text-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 rounded-lg focus:outline-none focus:border-indigo-500';

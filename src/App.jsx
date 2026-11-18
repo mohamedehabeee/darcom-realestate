@@ -74,7 +74,9 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(
     () => !isRecoveryUrl() && !isSecretVaultUrl() && !isOAuthCallbackUrl()
   );
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(
+    () => localStorage.getItem('darcom_dark') === 'true'
+  );
   const [lang, setLang] = useState(() => localStorage.getItem('darcom_lang') || 'en');
   const [activeView, setActiveView] = useState(() =>
     isSecretVaultUrl() ? 'admin' : 'home'
@@ -82,7 +84,7 @@ export default function App() {
   const [listingLayout, setListingLayout] = useState('grid');
 
   const [units, setUnits] = useState([]);
-  const [savedIds, setSavedIds] = useState(() => getSavedIds());
+  const [savedIds, setSavedIds] = useState(() => getSavedIds().map(String));
   const [compareIds, setCompareIds] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [clients, setClients] = useState([]);
@@ -103,6 +105,11 @@ export default function App() {
   const [showAccount, setShowAccount] = useState(false);
 
   const listingsRef = useRef(null);
+  const isAdminVerifiedRef = useRef(false);
+
+  useEffect(() => {
+    isAdminVerifiedRef.current = Boolean(currentUser?.role === 'admin' && mfaVerified);
+  }, [currentUser, mfaVerified]);
 
   const loadAdminRecords = async () => {
     const [loadedBookings, loadedClients, loadedSubs, loadedLogs] = await Promise.all([
@@ -119,6 +126,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darcom_dark', String(darkMode));
   }, [darkMode]);
 
   useEffect(() => {
@@ -140,7 +148,7 @@ export default function App() {
 
       if (user) {
         const synced = await syncSavedUnitsWithCloud();
-        setSavedIds(synced);
+        setSavedIds(synced.map(String));
       } else {
         setSavedIds(clearLocalSavedIds());
       }
@@ -178,7 +186,7 @@ export default function App() {
         setShowAuth(false);
         if (user) {
           const synced = await syncSavedUnitsWithCloud();
-          setSavedIds(synced);
+          setSavedIds(synced.map(String));
         }
         if (isOAuthCallbackUrl()) {
           window.history.replaceState({}, '', '/');
@@ -189,20 +197,24 @@ export default function App() {
       }
     });
 
-    // Live Supabase Realtime Channel
+    // Live Supabase Realtime Channel (Protected)
     const realtimeChannel = supabase
       .channel('darcom-live-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, async () => {
         setUnits(await getUnits());
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async () => {
-        setBookings(await getBookings());
+        if (isAdminVerifiedRef.current) {
+          setBookings(await getBookings());
+        }
       })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'admin_activity_logs' },
         async () => {
-          setActivityLogs(await getAdminActivityLogs());
+          if (isAdminVerifiedRef.current) {
+            setActivityLogs(await getAdminActivityLogs());
+          }
         }
       )
       .subscribe();
@@ -213,6 +225,13 @@ export default function App() {
       supabase.removeChannel(realtimeChannel);
     };
   }, []);
+
+  // Keep selectedUnit in sync if units update live
+  useEffect(() => {
+    if (!selectedUnit) return;
+    const fresh = units.find((u) => String(u.id) === String(selectedUnit.id));
+    if (fresh) setSelectedUnit(fresh);
+  }, [units]);
 
   const filteredUnits = useMemo(() => {
     const list = units.filter((u) => {
@@ -241,8 +260,14 @@ export default function App() {
   }, [units, filters]);
 
   const compareUnits = useMemo(
-    () => units.filter((u) => compareIds.includes(u.id)),
+    () => units.filter((u) => compareIds.includes(String(u.id))),
     [units, compareIds]
+  );
+
+  // Normalized units with string IDs so SavedUnits page works with both UUIDs and mock numbers
+  const normalizedUnits = useMemo(
+    () => units.map((u) => ({ ...u, id: String(u.id) })),
+    [units]
   );
 
   const needsPhonePrompt =
@@ -285,10 +310,11 @@ export default function App() {
   };
 
   const handleToggleCompare = (id) => {
+    const strId = String(id);
     setCompareIds((prev) => {
-      if (prev.includes(id)) return prev.filter((item) => item !== id);
-      if (prev.length >= 3) return [...prev.slice(1), id];
-      return [...prev, id];
+      if (prev.includes(strId)) return prev.filter((item) => item !== strId);
+      if (prev.length >= 3) return [...prev.slice(1), strId];
+      return [...prev, strId];
     });
   };
 
@@ -483,7 +509,7 @@ export default function App() {
                       <UnitCard
                         unit={unit}
                         isSaved={savedIds.includes(String(unit.id))}
-                        isCompared={compareIds.includes(unit.id)}
+                        isCompared={compareIds.includes(String(unit.id))}
                         onToggleSave={handleToggleSave}
                         onToggleCompare={handleToggleCompare}
                         onSelect={setSelectedUnit}
@@ -524,7 +550,7 @@ export default function App() {
 
         {activeView === 'saved' && (
           <SavedUnits
-            units={units}
+            units={normalizedUnits}
             savedIds={savedIds}
             compareIds={compareIds}
             onToggleSave={handleToggleSave}
@@ -615,7 +641,7 @@ export default function App() {
             setShowAuth(false);
             if (user) {
               const synced = await syncSavedUnitsWithCloud();
-              setSavedIds(synced);
+              setSavedIds(synced.map(String));
             }
             if (user?.role === 'admin') {
               setActiveView('admin');
