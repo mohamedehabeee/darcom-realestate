@@ -1,4 +1,5 @@
 import { Star, Quote, CheckCircle2 } from 'lucide-react';
+import ScrollReveal from './ScrollReveal';
 
 const TESTIMONIALS = [
   {
@@ -51,62 +52,63 @@ export default function TestimonialsSection({ lang = 'en' }) {
       className="bg-[#111111] text-white py-16 px-4 sm:px-6 border-t border-white/10"
     >
       <div className="max-w-7xl mx-auto space-y-10">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
-              {isAr ? 'قصص نجاح وصفقات موثقة' : 'Verified Client Closings'}
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-semibold mt-1">
-              {isAr ? 'آراء عملاء داركوم العقارية' : 'Trusted by Discerning Property Buyers'}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-white/5 border border-white/10 text-xs">
-            <div className="flex items-center gap-0.5 text-[#C59B27]">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-3.5 h-3.5 fill-[#C59B27]" />
-              ))}
+        <ScrollReveal>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
+                {isAr ? 'قصص نجاح وصفقات موثقة' : 'Verified Client Closings'}
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-semibold mt-1">
+                {isAr ? 'آراء عملاء داركوم العقارية' : 'Trusted by Discerning Property Buyers'}
+              </h2>
             </div>
-            <span className="font-semibold">
-              {isAr ? '4.9/5 من +320 عملية شراء موثقة' : '4.9 / 5 across 320+ verified closings'}
-            </span>
+
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-white/5 border border-white/10 text-xs">
+              <div className="flex items-center gap-0.5 text-[#C59B27]">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="w-3.5 h-3.5 fill-[#C59B27]" />
+                ))}
+              </div>
+              <span className="font-semibold">
+                {isAr ? '4.9/5 من +320 عملية شراء موثقة' : '4.9 / 5 across 320+ verified closings'}
+              </span>
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((item) => (
-            <div
-              key={item.id}
-              className="p-6 bg-[#181818] border border-white/10 hover:border-[#C59B27]/70 transition-all flex flex-col justify-between gap-6 relative"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-[#C59B27]">
-                  {[...Array(item.rating)].map((_, idx) => (
-                    <Star key={idx} className="w-3.5 h-3.5 fill-[#C59B27]" />
-                  ))}
+          {TESTIMONIALS.map((item, index) => (
+            <ScrollReveal key={item.id} delay={index * 120}>
+              <div className="h-full p-6 bg-[#181818] border border-white/10 hover:border-[#C59B27]/70 hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between gap-6 relative">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 text-[#C59B27]">
+                    {[...Array(item.rating)].map((_, idx) => (
+                      <Star key={idx} className="w-3.5 h-3.5 fill-[#C59B27]" />
+                    ))}
+                  </div>
+                  <Quote className="w-6 h-6 text-[#C59B27]/35" />
                 </div>
-                <Quote className="w-6 h-6 text-[#C59B27]/35" />
-              </div>
 
-              <p className="text-sm text-white/80 leading-relaxed">
-                “{isAr ? item.quoteAr : item.quoteEn}”
-              </p>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  “{isAr ? item.quoteAr : item.quoteEn}”
+                </p>
 
-              <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-bold text-white flex items-center gap-1.5">
-                    <span>{isAr ? item.nameAr : item.nameEn}</span>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#C59B27]" />
-                  </p>
-                  <p className="text-[11px] text-white/55 mt-0.5">
-                    {isAr ? item.roleAr : item.roleEn}
-                  </p>
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <span>{isAr ? item.nameAr : item.nameEn}</span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C59B27]" />
+                    </p>
+                    <p className="text-[11px] text-white/55 mt-0.5">
+                      {isAr ? item.roleAr : item.roleEn}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#C59B27]/15 border border-[#C59B27]/40 text-[#C59B27] text-[11px] font-bold shrink-0">
+                    {item.dealValue}
+                  </span>
                 </div>
-                <span className="px-2.5 py-1 bg-[#C59B27]/15 border border-[#C59B27]/40 text-[#C59B27] text-[11px] font-bold shrink-0">
-                  {item.dealValue}
-                </span>
               </div>
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       </div>

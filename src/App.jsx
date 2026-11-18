@@ -40,6 +40,7 @@ import WhyDarcomSection from './components/WhyDarcomSection';
 import FeaturedSliderSection from './components/FeaturedSliderSection';
 import TestimonialsSection from './components/TestimonialsSection';
 import FaqSection from './components/FaqSection';
+import ScrollReveal from './components/ScrollReveal';
 import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
@@ -409,53 +410,61 @@ export default function App() {
               }
             />
 
-            {siteSettings?.showVideoSection !== false && <VideoShowcaseSection />}
+            {siteSettings?.showVideoSection !== false && (
+              <ScrollReveal>
+                <VideoShowcaseSection />
+              </ScrollReveal>
+            )}
 
             <section ref={listingsRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-12 space-y-6">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
-                    {isAr ? 'وحدات مختارة بعناية' : 'Curated Listings'}
-                  </p>
-                  <h2 className="text-2xl sm:text-3xl font-semibold mt-1">
-                    {isAr
-                      ? `العقارات المتاحة (${filteredUnits.length})`
-                      : `Available Properties (${filteredUnits.length})`}
-                  </h2>
-                </div>
+              <ScrollReveal>
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
+                      {isAr ? 'وحدات مختارة بعناية' : 'Curated Listings'}
+                    </p>
+                    <h2 className="text-2xl sm:text-3xl font-semibold mt-1">
+                      {isAr
+                        ? `العقارات المتاحة (${filteredUnits.length})`
+                        : `Available Properties (${filteredUnits.length})`}
+                    </h2>
+                  </div>
 
-                {/* Grid / Map Toggle */}
-                <div className="flex border border-black/15 dark:border-white/15 text-xs font-semibold">
-                  <button
-                    onClick={() => setListingLayout('grid')}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
-                      listingLayout === 'grid'
-                        ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
-                        : 'text-[#111111]/70 dark:text-white/70'
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'شبكة' : 'Grid'}</span>
-                  </button>
-                  <button
-                    onClick={() => setListingLayout('map')}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
-                      listingLayout === 'map'
-                        ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
-                        : 'text-[#111111]/70 dark:text-white/70'
-                    }`}
-                  >
-                    <MapIcon className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'خريطة' : 'Map'}</span>
-                  </button>
+                  {/* Grid / Map Toggle */}
+                  <div className="flex border border-black/15 dark:border-white/15 text-xs font-semibold">
+                    <button
+                      onClick={() => setListingLayout('grid')}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
+                        listingLayout === 'grid'
+                          ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
+                          : 'text-[#111111]/70 dark:text-white/70'
+                      }`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'شبكة' : 'Grid'}</span>
+                    </button>
+                    <button
+                      onClick={() => setListingLayout('map')}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 cursor-pointer transition-colors ${
+                        listingLayout === 'map'
+                          ? 'bg-[#111111] dark:bg-[#C59B27] text-white dark:text-[#111111]'
+                          : 'text-[#111111]/70 dark:text-white/70'
+                      }`}
+                    >
+                      <MapIcon className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'خريطة' : 'Map'}</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </ScrollReveal>
 
-              <FilterBar
-                filters={filters}
-                onChange={handleFilterChange}
-                onReset={() => setFilters(DEFAULT_FILTERS)}
-              />
+              <ScrollReveal delay={70}>
+                <FilterBar
+                  filters={filters}
+                  onChange={handleFilterChange}
+                  onReset={() => setFilters(DEFAULT_FILTERS)}
+                />
+              </ScrollReveal>
 
               {filteredUnits.length === 0 ? (
                 <div className="py-16 text-center border border-black/10 dark:border-white/10 bg-white dark:bg-[#161616] text-sm text-[#111111]/60 dark:text-white/60">
@@ -464,19 +473,22 @@ export default function App() {
                     : 'No properties match your selected filters.'}
                 </div>
               ) : listingLayout === 'map' ? (
-                <PropertyMap units={filteredUnits} onSelectUnit={setSelectedUnit} />
+                <ScrollReveal>
+                  <PropertyMap units={filteredUnits} onSelectUnit={setSelectedUnit} />
+                </ScrollReveal>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredUnits.map((unit) => (
-                    <UnitCard
-                      key={unit.id}
-                      unit={unit}
-                      isSaved={savedIds.includes(String(unit.id))}
-                      isCompared={compareIds.includes(unit.id)}
-                      onToggleSave={handleToggleSave}
-                      onToggleCompare={handleToggleCompare}
-                      onSelect={setSelectedUnit}
-                    />
+                  {filteredUnits.map((unit, index) => (
+                    <ScrollReveal key={unit.id} delay={(index % 3) * 110}>
+                      <UnitCard
+                        unit={unit}
+                        isSaved={savedIds.includes(String(unit.id))}
+                        isCompared={compareIds.includes(unit.id)}
+                        onToggleSave={handleToggleSave}
+                        onToggleCompare={handleToggleCompare}
+                        onSelect={setSelectedUnit}
+                      />
+                    </ScrollReveal>
                   ))}
                 </div>
               )}
@@ -484,16 +496,24 @@ export default function App() {
 
             {siteSettings?.showLocationsSection !== false && (
               <div id="locations-section">
-                <LocationsSection units={units} onSelectCity={handleSelectCity} />
+                <ScrollReveal>
+                  <LocationsSection units={units} onSelectCity={handleSelectCity} />
+                </ScrollReveal>
               </div>
             )}
 
             <DevelopersSection lang={lang} onSelectDeveloper={handleSelectDeveloper} />
 
-            {siteSettings?.showWhyDarcomSection !== false && <WhyDarcomSection />}
+            {siteSettings?.showWhyDarcomSection !== false && (
+              <ScrollReveal>
+                <WhyDarcomSection />
+              </ScrollReveal>
+            )}
 
             {siteSettings?.showFeaturedSlider !== false && (
-              <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
+              <ScrollReveal>
+                <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
+              </ScrollReveal>
             )}
 
             <TestimonialsSection lang={lang} />

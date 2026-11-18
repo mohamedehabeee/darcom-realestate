@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
+import ScrollReveal from './ScrollReveal';
 
 const FAQS = [
   {
@@ -43,47 +44,48 @@ export default function FaqSection({ lang = 'en' }) {
       id="faq-section"
       className="max-w-5xl mx-auto px-4 sm:px-6 py-16 border-t border-black/10 dark:border-white/10"
     >
-      <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#C59B27]/10 border border-[#C59B27]/30 text-[#C59B27] text-xs font-semibold uppercase tracking-widest">
-          <HelpCircle className="w-3.5 h-3.5" />
-          <span>{isAr ? 'دليل المشتري الذكي' : 'Buyer Advisory FAQ'}</span>
+      <ScrollReveal>
+        <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#C59B27]/10 border border-[#C59B27]/30 text-[#C59B27] text-xs font-semibold uppercase tracking-widest">
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span>{isAr ? 'دليل المشتري الذكي' : 'Buyer Advisory FAQ'}</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-[#111111] dark:text-white">
+            {isAr
+              ? 'الأسئلة الشائعة حول الشراء والتقسيط العقاري'
+              : 'Frequently Asked Real Estate Questions'}
+          </h2>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-semibold text-[#111111] dark:text-white">
-          {isAr
-            ? 'الأسئلة الشائعة حول الشراء والتقسيط العقاري'
-            : 'Frequently Asked Real Estate Questions'}
-        </h2>
-      </div>
+      </ScrollReveal>
 
       <div className="space-y-3">
         {FAQS.map((item, idx) => {
           const isOpen = openIndex === idx;
           return (
-            <div
-              key={idx}
-              className="border border-black/15 dark:border-white/15 bg-white dark:bg-[#161616] transition-colors"
-            >
-              <button
-                type="button"
-                onClick={() => setOpenIndex(isOpen ? -1 : idx)}
-                className="w-full px-5 py-4 text-start flex items-center justify-between gap-4 cursor-pointer"
-              >
-                <span className="text-sm sm:text-base font-semibold text-[#111111] dark:text-white">
-                  {isAr ? item.qAr : item.qEn}
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-[#C59B27] shrink-0 transition-transform duration-200 ${
-                    isOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
+            <ScrollReveal key={idx} delay={idx * 80}>
+              <div className="border border-black/15 dark:border-white/15 bg-white dark:bg-[#161616] hover:border-[#C59B27]/60 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(isOpen ? -1 : idx)}
+                  className="w-full px-5 py-4 text-start flex items-center justify-between gap-4 cursor-pointer"
+                >
+                  <span className="text-sm sm:text-base font-semibold text-[#111111] dark:text-white">
+                    {isAr ? item.qAr : item.qEn}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-[#C59B27] shrink-0 transition-transform duration-200 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-              {isOpen && (
-                <div className="px-5 pb-4 pt-1 text-xs sm:text-sm text-[#111111]/70 dark:text-white/70 leading-relaxed border-t border-black/5 dark:border-white/5">
-                  {isAr ? item.aAr : item.aEn}
-                </div>
-              )}
-            </div>
+                {isOpen && (
+                  <div className="px-5 pb-4 pt-1 text-xs sm:text-sm text-[#111111]/70 dark:text-white/70 leading-relaxed border-t border-black/5 dark:border-white/5">
+                    {isAr ? item.aAr : item.aEn}
+                  </div>
+                )}
+              </div>
+            </ScrollReveal>
           );
         })}
       </div>
