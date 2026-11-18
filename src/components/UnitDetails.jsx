@@ -2,13 +2,21 @@ import { useState } from 'react';
 import { X, MapPin, BedDouble, Bath, Maximize2, Check, Calendar, Heart } from 'lucide-react';
 import InstallmentCalculator from './InstallmentCalculator';
 
-export default function UnitDetails({ unit, isSaved, onToggleSave, onClose, onBookViewing }) {
+export default function UnitDetails({
+  unit,
+  isSaved,
+  siteSettings,
+  onToggleSave,
+  onClose,
+  onBookViewing,
+}) {
   const [activeImage, setActiveImage] = useState(unit.gallery?.[0] || unit.image);
 
   const fmt = (price) =>
     new Intl.NumberFormat('en-EG').format(price) + (unit.purpose === 'Rent' ? ' EGP / mo' : ' EGP');
 
-  const whatsappUrl = `https://wa.me/201065347544?text=${encodeURIComponent(
+  const rawWa = (siteSettings?.whatsapp || '201065347544').replace(/\D/g, '');
+  const whatsappUrl = `https://wa.me/${rawWa}?text=${encodeURIComponent(
     `Hello DarCom, I'm interested in "${unit.title}" in ${unit.compound} (${unit.city}) listed at ${new Intl.NumberFormat('en-EG').format(unit.price)} EGP.`
   )}`;
 

@@ -294,6 +294,7 @@ export default function App() {
         {activeView === 'home' && (
           <>
             <Hero
+              siteSettings={siteSettings}
               onBrowseClick={() =>
                 listingsRef.current?.scrollIntoView({ behavior: 'smooth' })
               }
@@ -422,6 +423,7 @@ export default function App() {
       </main>
 
       <Footer
+        siteSettings={siteSettings}
         onNavigate={handleNavigate}
         onSecretTrigger={() => {
           setActiveView('admin');
@@ -432,6 +434,7 @@ export default function App() {
       {selectedUnit && (
         <UnitDetails
           unit={selectedUnit}
+          siteSettings={siteSettings}
           isSaved={savedIds.includes(selectedUnit.id)}
           onToggleSave={handleToggleSave}
           onClose={() => setSelectedUnit(null)}

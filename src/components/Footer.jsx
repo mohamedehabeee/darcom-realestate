@@ -1,10 +1,20 @@
 import { useRef, useState } from 'react';
 import { MapPin, Phone, Mail, ArrowUpRight, Send, CheckCircle2 } from 'lucide-react';
 
-export default function Footer({ onNavigate, onSecretTrigger }) {
+export default function Footer({ onNavigate, onSecretTrigger, siteSettings }) {
   const clicksRef = useRef({ count: 0, timer: null });
   const [subEmail, setSubEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+
+  const phone = siteSettings?.phone || '+20 106 534 7544';
+  const email = siteSettings?.email || 'info@darcom.eg';
+  const instagram = siteSettings?.instagram || 'https://www.instagram.com/';
+  const facebook = siteSettings?.facebook || 'https://www.facebook.com/';
+  const footerDesc =
+    siteSettings?.footerDesc ||
+    'Interactive 3D architectural tours, live installment modeling, and verified residences across New Cairo, Sheikh Zayed, New Capital, and the North Coast.';
+  const locationsText =
+    siteSettings?.locationsText || 'New Cairo • Sheikh Zayed • New Capital • North Coast';
 
   const handleLogoClick = () => {
     clicksRef.current.count += 1;
@@ -31,17 +41,14 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
 
   return (
     <footer className="relative bg-[#080808] text-white overflow-hidden">
-      {/* Animated Top Gold Laser Border */}
       <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#C59B27] to-transparent animate-pulse" />
 
-      {/* Subtle Ambient Gold Spotlight */}
       <div
         className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 w-[520px] h-[220px] rounded-full opacity-20 blur-3xl"
         style={{ background: 'radial-gradient(circle, #C59B27 0%, transparent 70%)' }}
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-12 space-y-12">
-        {/* Top Row: Glowing Brand + VIP Newsletter */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pb-10 border-b border-white/10">
           <div className="lg:col-span-7 space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#C59B27]/10 border border-[#C59B27]/40 text-[11px] uppercase tracking-[0.25em] text-[#C59B27]">
@@ -59,7 +66,7 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
             </div>
 
             <p className="text-sm text-white/65 max-w-xl leading-relaxed">
-              Interactive 3D architectural tours, live installment modeling, and verified residences across New Cairo, Sheikh Zayed, New Capital, and the North Coast.
+              {footerDesc}
             </p>
           </div>
 
@@ -97,9 +104,7 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
           </div>
         </div>
 
-        {/* Middle Row: Links + Destinations + Glowing Social Cards */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-          {/* Quick Navigation */}
           <div className="md:col-span-3 space-y-3">
             <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
               Navigation
@@ -132,43 +137,40 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
             </ul>
           </div>
 
-          {/* Direct Contact */}
           <div className="md:col-span-4 space-y-3">
             <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
               Direct Advisory
             </h4>
             <div className="space-y-2.5 text-sm text-white/75">
               <a
-                href="tel:+201065347544"
+                href={`tel:${phone.replace(/\s+/g, '')}`}
                 className="flex items-center gap-2.5 hover:text-[#C59B27] transition-colors"
               >
                 <Phone className="w-4 h-4 text-[#C59B27]" />
-                <span>+20 106 534 7544</span>
+                <span>{phone}</span>
               </a>
               <a
-                href="mailto:info@darcom.eg"
+                href={`mailto:${email}`}
                 className="flex items-center gap-2.5 hover:text-[#C59B27] transition-colors"
               >
                 <Mail className="w-4 h-4 text-[#C59B27]" />
-                <span>info@darcom.eg</span>
+                <span>{email}</span>
               </a>
               <div className="flex items-center gap-2.5 text-xs text-white/60 pt-1">
                 <MapPin className="w-4 h-4 text-[#C59B27] shrink-0" />
-                <span>New Cairo • Sheikh Zayed • New Capital • North Coast</span>
+                <span>{locationsText}</span>
               </div>
             </div>
           </div>
 
-          {/* Glowing Social Media Cards */}
           <div className="md:col-span-5 space-y-3">
             <h4 className="text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
               Follow Our Channels
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Instagram Card */}
               <a
-                href="https://www.instagram.com/"
+                href={instagram}
                 target="_blank"
                 rel="noreferrer"
                 className="group relative p-3.5 bg-[#121212] border border-white/15 hover:border-[#E1306C] hover:shadow-[0_0_25px_rgba(225,48,108,0.35)] transition-all duration-300 flex items-center justify-between"
@@ -199,20 +201,15 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
                 <ArrowUpRight className="w-4 h-4 text-white/40 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
               </a>
 
-              {/* Facebook Card */}
               <a
-                href="https://www.facebook.com/"
+                href={facebook}
                 target="_blank"
                 rel="noreferrer"
                 className="group relative p-3.5 bg-[#121212] border border-white/15 hover:border-[#1877F2] hover:shadow-[0_0_25px_rgba(24,119,242,0.35)] transition-all duration-300 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-[#1877F2] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
                     </svg>
                   </div>
@@ -230,7 +227,6 @@ export default function Footer({ onNavigate, onSecretTrigger }) {
         </div>
       </div>
 
-      {/* Bottom Copyright Bar */}
       <div className="border-t border-white/10 bg-black/60 py-4 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs text-white/50">
           <span>DARCOM Real Estate © {new Date().getFullYear()} — All Rights Reserved.</span>
