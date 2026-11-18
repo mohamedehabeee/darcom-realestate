@@ -35,8 +35,11 @@ import FilterBar from './components/FilterBar';
 import UnitCard from './components/UnitCard';
 import PropertyMap from './components/PropertyMap';
 import LocationsSection from './components/LocationsSection';
+import DevelopersSection from './components/DevelopersSection';
 import WhyDarcomSection from './components/WhyDarcomSection';
 import FeaturedSliderSection from './components/FeaturedSliderSection';
+import TestimonialsSection from './components/TestimonialsSection';
+import FaqSection from './components/FaqSection';
 import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
 import BookingModal from './components/BookingModal';
@@ -71,6 +74,7 @@ export default function App() {
     () => !isRecoveryUrl() && !isSecretVaultUrl() && !isOAuthCallbackUrl()
   );
   const [darkMode, setDarkMode] = useState(false);
+  const [lang, setLang] = useState(() => localStorage.getItem('darcom_lang') || 'en');
   const [activeView, setActiveView] = useState(() =>
     isSecretVaultUrl() ? 'admin' : 'home'
   );
@@ -115,6 +119,12 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('darcom_lang', lang);
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -250,6 +260,25 @@ export default function App() {
     listingsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleSelectDeveloper = (dev) => {
+    setFilters({
+      ...DEFAULT_FILTERS,
+      city: dev.city || 'All',
+    });
+    listingsRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleQuickJump = (sectionId) => {
+    if (activeView !== 'home') {
+      setActiveView('home');
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    } else {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const handleToggleSave = (id) => {
     setSavedIds(toggleSavedId(String(id)));
   };
@@ -345,6 +374,8 @@ export default function App() {
     }
   };
 
+  const isAr = lang === 'ar';
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-[#111111] text-[#111111] dark:text-white transition-colors">
       {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
@@ -352,10 +383,13 @@ export default function App() {
       <Navbar
         activeView={activeView}
         onNavigate={handleNavigate}
+        onQuickJump={handleQuickJump}
         savedCount={savedIds.length}
         compareCount={compareIds.length}
         darkMode={darkMode}
         onToggleDark={() => setDarkMode((prev) => !prev)}
+        lang={lang}
+        onToggleLang={() => setLang((prev) => (prev === 'en' ? 'ar' : 'en'))}
         currentUser={currentUser}
         onOpenAuth={() => {
           setAuthMode('login');
@@ -381,10 +415,12 @@ export default function App() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-[#C59B27] font-semibold">
-                    Curated Listings
+                    {isAr ? 'وحدات مختارة بعناية' : 'Curated Listings'}
                   </p>
                   <h2 className="text-2xl sm:text-3xl font-semibold mt-1">
-                    Available Properties ({filteredUnits.length})
+                    {isAr
+                      ? `العقارات المتاحة (${filteredUnits.length})`
+                      : `Available Properties (${filteredUnits.length})`}
                   </h2>
                 </div>
 
@@ -399,7 +435,7 @@ export default function App() {
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>Grid</span>
+                    <span>{isAr ? 'شبكة' : 'Grid'}</span>
                   </button>
                   <button
                     onClick={() => setListingLayout('map')}
@@ -410,7 +446,7 @@ export default function App() {
                     }`}
                   >
                     <MapIcon className="w-3.5 h-3.5" />
-                    <span>Map</span>
+                    <span>{isAr ? 'خريطة' : 'Map'}</span>
                   </button>
                 </div>
               </div>
@@ -423,7 +459,9 @@ export default function App() {
 
               {filteredUnits.length === 0 ? (
                 <div className="py-16 text-center border border-black/10 dark:border-white/10 bg-white dark:bg-[#161616] text-sm text-[#111111]/60 dark:text-white/60">
-                  No properties match your selected filters.
+                  {isAr
+                    ? 'لا توجد عقارات مطابقة لمعايير البحث الحالية.'
+                    : 'No properties match your selected filters.'}
                 </div>
               ) : listingLayout === 'map' ? (
                 <PropertyMap units={filteredUnits} onSelectUnit={setSelectedUnit} />
@@ -445,12 +483,22 @@ export default function App() {
             </section>
 
             {siteSettings?.showLocationsSection !== false && (
-              <LocationsSection units={units} onSelectCity={handleSelectCity} />
+              <div id="locations-section">
+                <LocationsSection units={units} onSelectCity={handleSelectCity} />
+              </div>
             )}
+
+            <DevelopersSection lang={lang} onSelectDeveloper={handleSelectDeveloper} />
+
             {siteSettings?.showWhyDarcomSection !== false && <WhyDarcomSection />}
+
             {siteSettings?.showFeaturedSlider !== false && (
               <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
             )}
+
+            <TestimonialsSection lang={lang} />
+
+            <FaqSection lang={lang} />
           </>
         )}
 
