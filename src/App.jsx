@@ -55,11 +55,15 @@ const isRecoveryUrl = () =>
   window.location.hash.includes('type=recovery') ||
   window.location.search.includes('type=recovery');
 
+const isOAuthCallbackUrl = () =>
+  window.location.search.includes('code=') ||
+  window.location.hash.includes('access_token=');
+
 const isSecretVaultUrl = () => window.location.hash === '#vault';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(
-    () => !isRecoveryUrl() && !isSecretVaultUrl()
+    () => !isRecoveryUrl() && !isSecretVaultUrl() && !isOAuthCallbackUrl()
   );
   const [darkMode, setDarkMode] = useState(false);
   const [activeView, setActiveView] = useState(() =>
@@ -130,11 +134,18 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setShowIntro(false);
         setAuthMode('reset');
         setShowAuth(true);
+      } else if (event === 'SIGNED_IN') {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+        setShowAuth(false);
+        if (isOAuthCallbackUrl()) {
+          window.history.replaceState({}, '', '/');
+        }
       }
     });
 

@@ -284,7 +284,10 @@ async function formatUserWithRole(user) {
 
   return {
     id: user.id,
-    name: user.user_metadata?.name || (roleRow?.role === 'admin' ? 'Admin' : email.split('@')[0]),
+    name:
+      user.user_metadata?.name ||
+      user.user_metadata?.full_name ||
+      (roleRow?.role === 'admin' ? 'Admin' : email.split('@')[0]),
     email,
     phone: user.user_metadata?.phone || '',
     role: roleRow?.role === 'admin' ? 'admin' : 'buyer',
@@ -321,6 +324,25 @@ export async function loginUser({ email, password }) {
   return formatUserWithRole(data.user);
 }
 
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'select_account',
+      },
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Could not start Google sign-in.');
+  }
+
+  return data;
+}
+
 export async function sendPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
     redirectTo: window.location.origin,
@@ -342,7 +364,22 @@ export async function updateUserProfile({ name, phone }) {
     data: metadata,
   });
   if (error) throw error;
-  return formatUserWithRole(data.user);
+
+  const formatted = await formatUserWithRole(data.user);
+  if (formatted?.id) {
+    await supabase
+      .from('profiles')
+      .upsert({
+        id: formatted.id,
+        name: formatted.name,
+        email: formatted.email,
+        phone: formatted.phone,
+        updated_at: new Date().toISOString(),
+      })
+      .catch(() => {});
+  }
+
+  return formatted;
 }
 
 export async function logoutUser() {
