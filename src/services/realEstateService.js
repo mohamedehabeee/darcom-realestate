@@ -367,16 +367,17 @@ export async function updateUserProfile({ name, phone }) {
 
   const formatted = await formatUserWithRole(data.user);
   if (formatted?.id) {
-    await supabase
-      .from('profiles')
-      .upsert({
+    try {
+      await supabase.from('profiles').upsert({
         id: formatted.id,
         name: formatted.name,
         email: formatted.email,
         phone: formatted.phone,
         updated_at: new Date().toISOString(),
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // Profile sync handled safely
+    }
   }
 
   return formatted;
