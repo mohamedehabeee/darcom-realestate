@@ -52,7 +52,7 @@ export default function Villa3DViewer() {
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
@@ -307,7 +307,7 @@ export default function Villa3DViewer() {
     canopy.castShadow = true;
     villa.add(canopy);
 
-    // 6. PERGOLA & OUTDOOR LOUNGE (Left-Back / Side Terrace)
+    // 6. PERGOLA & OUTDOOR LOUNGE
     const pergolaPosts = [
       [-6.2, 2.0],
       [-6.2, 4.4],
@@ -418,11 +418,11 @@ export default function Villa3DViewer() {
     // ANIMATION LOOP
     // ==========================================
     let frameId;
-    const clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
       frameId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (performance.now() - startTime) * 0.001;
 
       // Subtle pool water shimmer
       waterMesh.position.y = 0.17 + Math.sin(elapsed * 2.2) * 0.012;
@@ -544,7 +544,8 @@ export default function Villa3DViewer() {
 
       {/* Top Left Badge */}
       <div className="absolute top-3 left-3 px-2.5 sm:px-3 py-1 bg-[#111111]/85 backdrop-blur-sm border border-white/15 text-[10px] sm:text-[11px] uppercase tracking-wider text-[#C59B27] font-semibold">
-        Interactive 3D Villa — Drag to Rotate
+        <span className="sm:hidden">3D Villa</span>
+        <span className="hidden sm:inline">Interactive 3D Villa — Drag to Rotate</span>
       </div>
 
       {/* Top Right Quick Camera Presets */}
