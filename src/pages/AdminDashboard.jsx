@@ -1027,7 +1027,7 @@ export default function AdminDashboard({
                       <th className="py-3 px-4">Property</th>
                       <th className="py-3 px-4">Date</th>
                       <th className="py-3 px-4">Status</th>
-                      <th className="py-3 pl-4 text-right">Delete</th>
+                      <th className="py-3 pl-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1062,12 +1062,26 @@ export default function AdminDashboard({
                           </button>
                         </td>
                         <td className="py-3 pl-4 text-right">
-                          <button
-                            onClick={() => onDeleteBooking(b.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            {b.phone && (
+                              <a
+                                href={`https://wa.me/${formatWhatsAppPhone(b.phone)}?text=${encodeURIComponent(
+                                  `أهلاً ${b.name}، معاك فريق DarCom العقاري.\nتم تأكيد موعد معاينة وحدة "${b.unitTitle}" بتاريخ ${b.date}.\nفي انتظارك ولو محتاج أي استفسار قبل الموعد كلمنا هنا!`
+                                )}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex px-2.5 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
+                            <button
+                              onClick={() => onDeleteBooking(b.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

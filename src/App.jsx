@@ -113,13 +113,19 @@ export default function App() {
     isRecoveryUrl() ? 'reset' : 'login'
   );
   const [showAccount, setShowAccount] = useState(false);
+  const [liveToast, setLiveToast] = useState(null);
 
   const listingsRef = useRef(null);
   const isAdminVerifiedRef = useRef(false);
+  const currentUserRef = useRef(null);
 
   useEffect(() => {
     isAdminVerifiedRef.current = Boolean(currentUser?.role === 'admin' && mfaVerified);
   }, [currentUser, mfaVerified]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Gold Scroll Progress Bar tracker
   useEffect(() => {
@@ -229,9 +235,24 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, async () => {
         setUnits(await getUnits());
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async (payload) => {
         if (isAdminVerifiedRef.current) {
           setBookings(await getBookings());
+        }
+        const updated = payload?.new;
+        const user = currentUserRef.current;
+        if (
+          payload.eventType === 'UPDATE' &&
+          updated &&
+          user &&
+          updated.user_id === user.id &&
+          updated.status === 'Confirmed'
+        ) {
+          setLiveToast({
+            title: updated.unit_title,
+            date: updated.preferred_date,
+          });
+          setTimeout(() => setLiveToast(null), 8000);
         }
       })
       .on(
@@ -753,6 +774,27 @@ export default function App() {
           currentUser={currentUser}
           onUpdated={(updated) => setCurrentUser(updated)}
         />
+      )}
+
+      {/* Live Viewing Confirmation Toast */}
+      {liveToast && (
+        <div className="fixed top-20 right-4 z-[80] max-w-sm bg-[#111111] text-white border border-[#C59B27] shadow-2xl p-4 animate-fade-up">
+          <p className="text-[11px] uppercase tracking-wider text-[#C59B27] font-bold">
+            {isAr ? 'تم تأكيد المعاينة' : 'Viewing Confirmed'}
+          </p>
+          <p className="text-sm font-semibold mt-1">
+            {isAr
+              ? `تم تأكيد موعد معاينة "${liveToast.title}" بتاريخ ${liveToast.date}.`
+              : `Your viewing for "${liveToast.title}" on ${liveToast.date} is confirmed.`}
+          </p>
+          <button
+            type="button"
+            onClick={() => setLiveToast(null)}
+            className="mt-2 text-xs text-white/60 hover:text-[#C59B27] cursor-pointer"
+          >
+            {isAr ? 'إغلاق' : 'Dismiss'}
+          </button>
+        </div>
       )}
     </div>
   );
