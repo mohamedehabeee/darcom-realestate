@@ -20,8 +20,14 @@ import {
   Mail,
   Activity,
   Download,
+  Star,
+  Images,
+  ImagePlus,
 } from 'lucide-react';
-import { uploadPropertyImage } from '../services/realEstateService';
+import { uploadPropertyImages } from '../services/realEstateService';
+
+const DEFAULT_FALLBACK_IMG =
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
 
 const EMPTY_FORM = {
   title: '',
@@ -38,7 +44,8 @@ const EMPTY_FORM = {
   installmentYears: '7',
   status: 'Available',
   badge: '',
-  image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+  image: DEFAULT_FALLBACK_IMG,
+  gallery: [DEFAULT_FALLBACK_IMG],
   featuresText: 'Private Garden, 24/7 Security, Covered Parking',
   description: '',
 };
@@ -70,6 +77,7 @@ export default function AdminDashboard({
   const [tab, setTab] = useState('units');
   const [adminSearch, setAdminSearch] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [newImageUrl, setNewImageUrl] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -188,19 +196,71 @@ export default function AdminDashboard({
     );
   }, [units, adminSearch]);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Multi-file upload handler
+  const handleFilesChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
     setUploadError('');
     setUploading(true);
     try {
-      const url = await uploadPropertyImage(file);
-      setForm((p) => ({ ...p, image: url }));
+      const uploadedUrls = await uploadPropertyImages(files);
+      setForm((prev) => {
+        const isOnlyDefault =
+          prev.gallery.length === 1 && prev.gallery[0] === DEFAULT_FALLBACK_IMG && !editingId;
+        const baseGallery = isOnlyDefault ? [] : prev.gallery;
+        const merged = [...new Set([...baseGallery, ...uploadedUrls])];
+        return {
+          ...prev,
+          image: isOnlyDefault ? merged[0] : prev.image || merged[0],
+          gallery: merged,
+        };
+      });
     } catch (err) {
-      setUploadError(err.message || 'Upload failed.');
+      setUploadError(err.message || 'Upload failed. Make sure each image is under 5MB.');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
+  };
+
+  const handleAddImageUrl = () => {
+    const clean = newImageUrl.trim();
+    if (!clean) return;
+    setForm((prev) => {
+      const isOnlyDefault =
+        prev.gallery.length === 1 && prev.gallery[0] === DEFAULT_FALLBACK_IMG && !editingId;
+      const baseGallery = isOnlyDefault ? [] : prev.gallery;
+      const merged = [...new Set([...baseGallery, clean])];
+      return {
+        ...prev,
+        image: isOnlyDefault ? clean : prev.image || clean,
+        gallery: merged,
+      };
+    });
+    setNewImageUrl('');
+  };
+
+  const handleSetCoverImage = (url) => {
+    setForm((prev) => {
+      const rest = prev.gallery.filter((item) => item !== url);
+      return {
+        ...prev,
+        image: url,
+        gallery: [url, ...rest],
+      };
+    });
+  };
+
+  const handleRemoveGalleryImage = (url) => {
+    setForm((prev) => {
+      const remaining = prev.gallery.filter((item) => item !== url);
+      const nextCover = prev.image === url ? remaining[0] || '' : prev.image;
+      return {
+        ...prev,
+        image: nextCover,
+        gallery: remaining,
+      };
+    });
   };
 
   const handleExportSubscribersCsv = () => {
@@ -218,6 +278,16 @@ export default function AdminDashboard({
   const startEdit = (u) => {
     setEditingId(u.id);
     setUploadError('');
+    setNewImageUrl('');
+    const existingGallery = [
+      ...new Set(
+        [u.image, ...(Array.isArray(u.gallery) ? u.gallery : [])]
+          .map((item) => (typeof item === 'string' ? item.trim() : ''))
+          .filter(Boolean)
+      ),
+    ];
+    const coverImg = u.image || existingGallery[0] || DEFAULT_FALLBACK_IMG;
+
     setForm({
       title: u.title || '',
       city: u.city || 'New Cairo',
@@ -233,7 +303,8 @@ export default function AdminDashboard({
       installmentYears: String(u.installmentYears ?? 7),
       status: u.status || 'Available',
       badge: u.badge || '',
-      image: u.image || EMPTY_FORM.image,
+      image: coverImg,
+      gallery: existingGallery.length ? existingGallery : [coverImg],
       featuresText: Array.isArray(u.features) ? u.features.join(', ') : '',
       description: u.description || '',
     });
@@ -250,6 +321,16 @@ export default function AdminDashboard({
         .map((s) => s.trim())
         .filter(Boolean);
 
+      const cleanedGallery = [
+        ...new Set(
+          [form.image, ...(Array.isArray(form.gallery) ? form.gallery : [])]
+            .map((url) => (typeof url === 'string' ? url.trim() : ''))
+            .filter(Boolean)
+        ),
+      ];
+      const coverImage = form.image?.trim() || cleanedGallery[0] || DEFAULT_FALLBACK_IMG;
+      const finalGallery = cleanedGallery.length ? cleanedGallery : [coverImage];
+
       const payload = {
         title: form.title,
         city: form.city,
@@ -265,7 +346,8 @@ export default function AdminDashboard({
         badge: form.badge,
         downPaymentPercent: form.purpose === 'Buy' ? Number(form.downPaymentPercent) : 0,
         installmentYears: form.purpose === 'Buy' ? Number(form.installmentYears) : 1,
-        image: form.image,
+        image: coverImage,
+        gallery: finalGallery,
         features: feats.length ? feats : ['24/7 Security', 'Parking'],
         description:
           form.description.trim() || `${form.type} in ${form.compound}, ${form.city}.`,
@@ -278,6 +360,7 @@ export default function AdminDashboard({
         await onAddUnit(payload);
       }
       setForm(EMPTY_FORM);
+      setNewImageUrl('');
     } catch (err) {
       setUploadError(err.message || 'Could not save property.');
     } finally {
@@ -511,6 +594,7 @@ export default function AdminDashboard({
                       onClick={() => {
                         setEditingId(null);
                         setForm(EMPTY_FORM);
+                        setNewImageUrl('');
                       }}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 cursor-pointer"
                     >
@@ -666,35 +750,118 @@ export default function AdminDashboard({
                     placeholder="Features (comma separated)"
                     value={form.featuresText}
                     onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
-                    className={`${inputCls} sm:col-span-2`}
+                    className={`${inputCls} lg:col-span-4`}
                   />
-                  <div className="sm:col-span-2 flex items-center gap-2">
-                    {form.image && (
-                      <img
-                        src={form.image}
-                        alt=""
-                        className="w-10 h-10 rounded-lg object-cover border border-slate-300 dark:border-slate-700 shrink-0"
-                      />
-                    )}
-                    <input
-                      type="text"
-                      placeholder="Image URL or upload..."
-                      value={form.image}
-                      onChange={(e) => setForm({ ...form, image: e.target.value })}
-                      className={inputCls}
-                    />
-                    <label className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold hover:border-indigo-500 cursor-pointer">
-                      <Upload className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>{uploading ? '...' : 'Upload'}</span>
+
+                  {/* Multi-Image Gallery Manager */}
+                  <div className="lg:col-span-4 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Images className="w-4 h-4 text-indigo-500" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                          Property Photos ({form.gallery.length})
+                        </span>
+                      </div>
+
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{uploading ? 'Uploading...' : 'Upload Multiple Photos'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={uploading}
+                          onChange={handleFilesChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Add by URL */}
+                    <div className="flex items-center gap-2">
                       <input
-                        type="file"
-                        accept="image/*"
-                        disabled={uploading}
-                        onChange={handleFileChange}
-                        className="hidden"
+                        type="url"
+                        placeholder="Or paste an image URL and click Add..."
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddImageUrl();
+                          }
+                        }}
+                        className={inputCls}
                       />
-                    </label>
+                      <button
+                        type="button"
+                        onClick={handleAddImageUrl}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-semibold hover:border-indigo-500 cursor-pointer"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Add URL</span>
+                      </button>
+                    </div>
+
+                    {/* Preview Grid */}
+                    {form.gallery.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2">
+                        No photos added yet. Upload one or more photos above.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-1">
+                        {form.gallery.map((imgUrl, idx) => {
+                          const isCover = imgUrl === form.image;
+                          return (
+                            <div
+                              key={`${imgUrl}-${idx}`}
+                              className={`relative group rounded-lg overflow-hidden border-2 aspect-[4/3] bg-slate-100 dark:bg-slate-950 ${
+                                isCover
+                                  ? 'border-amber-500 shadow-sm'
+                                  : 'border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`Property photo ${idx + 1}`}
+                                onError={(e) => {
+                                  e.currentTarget.src = DEFAULT_FALLBACK_IMG;
+                                }}
+                                className="w-full h-full object-cover"
+                              />
+
+                              {isCover && (
+                                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[10px] font-bold uppercase shadow">
+                                  Cover
+                                </span>
+                              )}
+
+                              <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                                {!isCover && (
+                                  <button
+                                    type="button"
+                                    title="Set as Cover Photo"
+                                    onClick={() => handleSetCoverImage(imgUrl)}
+                                    className="p-1 rounded bg-black/70 hover:bg-amber-500 text-white hover:text-slate-950 transition-colors cursor-pointer"
+                                  >
+                                    <Star className="w-3 h-3" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  title="Remove Photo"
+                                  onClick={() => handleRemoveGalleryImage(imgUrl)}
+                                  className="p-1 rounded bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+
                   <textarea
                     rows="2"
                     placeholder="Property Description..."
@@ -705,7 +872,7 @@ export default function AdminDashboard({
                   <button
                     type="submit"
                     disabled={saving || uploading}
-                    className="lg:col-span-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors cursor-pointer"
+                    className="lg:col-span-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : editingId ? 'Save All Property Changes' : 'Add Property'}
                   </button>
@@ -738,72 +905,93 @@ export default function AdminDashboard({
                       </tr>
                     </thead>
                     <tbody>
-                      {tableUnits.map((u) => (
-                        <tr
-                          key={u.id}
-                          className="border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                        >
-                          <td className="py-3 pr-4 font-semibold text-slate-900 dark:text-white">
-                            {u.title}
-                          </td>
-                          <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
-                            {u.compound}, {u.city}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-semibold">
-                              {new Intl.NumberFormat('en-EG').format(u.price)} EGP
-                            </div>
-                            {u.purpose === 'Buy' && (
-                              <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
-                                {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
+                      {tableUnits.map((u) => {
+                        const photoCount = Array.isArray(u.gallery) && u.gallery.length ? u.gallery.length : 1;
+                        return (
+                          <tr
+                            key={u.id}
+                            className="border-b border-slate-100 dark:border-slate-800/70 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          >
+                            <td className="py-3 pr-4">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={u.image || DEFAULT_FALLBACK_IMG}
+                                  alt={u.title}
+                                  onError={(e) => {
+                                    e.currentTarget.src = DEFAULT_FALLBACK_IMG;
+                                  }}
+                                  className="w-11 h-9 rounded-md object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                                />
+                                <div>
+                                  <div className="font-semibold text-slate-900 dark:text-white">
+                                    {u.title}
+                                  </div>
+                                  <div className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                                    <Images className="w-3 h-3" />
+                                    <span>{photoCount} {photoCount === 1 ? 'photo' : 'photos'}</span>
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            <select
-                              value={u.badge || ''}
-                              onChange={(e) => onUpdateUnit(u.id, { badge: e.target.value })}
-                              className="px-2.5 py-1 text-xs rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                            >
-                              <option value="">None</option>
-                              <option value="New">New</option>
-                              <option value="Hot">Hot</option>
-                              <option value="Exclusive">Exclusive</option>
-                            </select>
-                          </td>
-                          <td className="py-3 px-4">
-                            <select
-                              value={u.status}
-                              onChange={(e) => onUpdateUnitStatus(u.id, e.target.value)}
-                              className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
-                                u.status === 'Sold'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
-                                  : u.status === 'Reserved'
-                                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
-                                  : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
-                              }`}
-                            >
-                              <option value="Available">Available</option>
-                              <option value="Reserved">Reserved</option>
-                              <option value="Sold">Sold</option>
-                            </select>
-                          </td>
-                          <td className="py-3 pl-4 text-right space-x-2">
-                            <button
-                              onClick={() => startEdit(u)}
-                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-500 cursor-pointer"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => onDeleteUnit(u.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
+                              {u.compound}, {u.city}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold">
+                                {new Intl.NumberFormat('en-EG').format(u.price)} EGP
+                              </div>
+                              {u.purpose === 'Buy' && (
+                                <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                                  {u.downPaymentPercent}% Down • {u.installmentYears} Yrs
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <select
+                                value={u.badge || ''}
+                                onChange={(e) => onUpdateUnit(u.id, { badge: e.target.value })}
+                                className="px-2.5 py-1 text-xs rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                              >
+                                <option value="">None</option>
+                                <option value="New">New</option>
+                                <option value="Hot">Hot</option>
+                                <option value="Exclusive">Exclusive</option>
+                              </select>
+                            </td>
+                            <td className="py-3 px-4">
+                              <select
+                                value={u.status}
+                                onChange={(e) => onUpdateUnitStatus(u.id, e.target.value)}
+                                className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
+                                  u.status === 'Sold'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                                    : u.status === 'Reserved'
+                                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                                    : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
+                                }`}
+                              >
+                                <option value="Available">Available</option>
+                                <option value="Reserved">Reserved</option>
+                                <option value="Sold">Sold</option>
+                              </select>
+                            </td>
+                            <td className="py-3 pl-4 text-right space-x-2">
+                              <button
+                                onClick={() => startEdit(u)}
+                                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-500 cursor-pointer"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteUnit(u.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

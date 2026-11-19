@@ -23,6 +23,17 @@ export const DEFAULT_SITE_SETTINGS = {
   showFeaturedSlider: true,
 };
 
+function normalizeGallery(image, gallery) {
+  const rawList = [
+    ...(image ? [image] : []),
+    ...(Array.isArray(gallery) ? gallery : []),
+  ];
+  const cleaned = rawList
+    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .filter(Boolean);
+  return [...new Set(cleaned)];
+}
+
 function extractStorageFileName(imageUrl) {
   if (!imageUrl || typeof imageUrl !== 'string') return null;
   const marker = '/storage/v1/object/public/property-images/';
@@ -31,17 +42,20 @@ function extractStorageFileName(imageUrl) {
   return decodeURIComponent(imageUrl.slice(idx + marker.length).split('?')[0]);
 }
 
-async function removeStorageImageIfOwned(imageUrl) {
-  const fileName = extractStorageFileName(imageUrl);
-  if (!fileName) return;
+async function removeStorageImagesIfOwned(imageUrls) {
+  const list = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
+  const fileNames = [...new Set(list.map(extractStorageFileName).filter(Boolean))];
+  if (!fileNames.length) return;
   try {
-    await supabase.storage.from('property-images').remove([fileName]);
+    await supabase.storage.from('property-images').remove(fileNames);
   } catch {
     // Ignore storage cleanup errors
   }
 }
 
 function mapUnitFromDb(row) {
+  const gallery = normalizeGallery(row.image, row.gallery);
+  const coverImage = row.image || gallery[0] || '';
   return {
     id: row.id,
     title: row.title,
@@ -58,14 +72,16 @@ function mapUnitFromDb(row) {
     badge: row.badge || '',
     downPaymentPercent: Number(row.down_payment_percent ?? 15),
     installmentYears: Number(row.installment_years ?? 7),
-    image: row.image,
-    gallery: Array.isArray(row.gallery) && row.gallery.length ? row.gallery : [row.image],
+    image: coverImage,
+    gallery: gallery.length ? gallery : [coverImage].filter(Boolean),
     features: Array.isArray(row.features) ? row.features : ['24/7 Security', 'Parking'],
     description: row.description || '',
   };
 }
 
 function mapUnitToDb(unit) {
+  const gallery = normalizeGallery(unit.image, unit.gallery);
+  const coverImage = unit.image?.trim() || gallery[0] || '';
   return {
     title: unit.title,
     city: unit.city,
@@ -81,8 +97,8 @@ function mapUnitToDb(unit) {
     badge: unit.badge || '',
     down_payment_percent: Number(unit.downPaymentPercent ?? 15),
     installment_years: Number(unit.installmentYears ?? 7),
-    image: unit.image,
-    gallery: unit.gallery?.length ? unit.gallery : [unit.image],
+    image: coverImage,
+    gallery: gallery.length ? gallery : [coverImage].filter(Boolean),
     features:
       Array.isArray(unit.features) && unit.features.length
         ? unit.features
@@ -111,14 +127,19 @@ export async function addUnit(unitData) {
 }
 
 export async function updateUnit(unitId, updatedData) {
-  let oldImage = null;
-  if (updatedData.image !== undefined) {
+  let oldUrls = [];
+  const isUpdatingMedia =
+    updatedData.image !== undefined || updatedData.gallery !== undefined;
+
+  if (isUpdatingMedia) {
     const { data: existing } = await supabase
       .from('units')
-      .select('image')
+      .select('image, gallery')
       .eq('id', unitId)
       .maybeSingle();
-    oldImage = existing?.image || null;
+    if (existing) {
+      oldUrls = normalizeGallery(existing.image, existing.gallery);
+    }
   }
 
   const payload = {};
@@ -140,18 +161,26 @@ export async function updateUnit(unitId, updatedData) {
   if (updatedData.installmentYears !== undefined) {
     payload.installment_years = Number(updatedData.installmentYears);
   }
-  if (updatedData.image !== undefined) {
-    payload.image = updatedData.image;
-    payload.gallery = updatedData.gallery?.length ? updatedData.gallery : [updatedData.image];
+
+  let newUrls = [];
+  if (isUpdatingMedia) {
+    newUrls = normalizeGallery(updatedData.image, updatedData.gallery);
+    const coverImage = updatedData.image?.trim() || newUrls[0] || '';
+    payload.image = coverImage;
+    payload.gallery = newUrls.length ? newUrls : [coverImage].filter(Boolean);
   }
+
   if (updatedData.features !== undefined) payload.features = updatedData.features;
   if (updatedData.description !== undefined) payload.description = updatedData.description;
 
   const { error } = await supabase.from('units').update(payload).eq('id', unitId);
   if (error) throw error;
 
-  if (oldImage && updatedData.image && oldImage !== updatedData.image) {
-    await removeStorageImageIfOwned(oldImage);
+  if (isUpdatingMedia && oldUrls.length) {
+    const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
+    if (removedUrls.length) {
+      await removeStorageImagesIfOwned(removedUrls);
+    }
   }
 
   return getUnits();
@@ -166,15 +195,18 @@ export async function updateUnitStatus(unitId, status) {
 export async function deleteUnit(unitId) {
   const { data: existing } = await supabase
     .from('units')
-    .select('image')
+    .select('image, gallery')
     .eq('id', unitId)
     .maybeSingle();
 
   const { error } = await supabase.from('units').delete().eq('id', unitId);
   if (error) throw error;
 
-  if (existing?.image) {
-    await removeStorageImageIfOwned(existing.image);
+  if (existing) {
+    const allUrls = normalizeGallery(existing.image, existing.gallery);
+    if (allUrls.length) {
+      await removeStorageImagesIfOwned(allUrls);
+    }
   }
 
   return getUnits();
@@ -188,7 +220,7 @@ export async function resetUnits() {
   return getUnits();
 }
 
-// Storage Image Upload
+// Storage Image Upload (Single & Multiple)
 export async function uploadPropertyImage(file) {
   const ext = file.name.split('.').pop() || 'jpg';
   const fileName = `unit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
@@ -201,6 +233,12 @@ export async function uploadPropertyImage(file) {
 
   const { data } = supabase.storage.from('property-images').getPublicUrl(fileName);
   return data.publicUrl;
+}
+
+export async function uploadPropertyImages(files) {
+  const fileList = Array.from(files || []).filter(Boolean);
+  if (!fileList.length) return [];
+  return Promise.all(fileList.map((file) => uploadPropertyImage(file)));
 }
 
 // Saved / Favorites (Local + Supabase Cloud Sync)
@@ -680,6 +718,7 @@ export async function verifyAdminMfa(factorId, code) {
   if (verifyErr) throw verifyErr;
   return true;
 }
+
 // ==========================================
 // 1. دوال تنبيهات نزول السعر (Price Alerts)
 // ==========================================
@@ -752,7 +791,7 @@ export function addRecentlyViewedId(unitId) {
   if (!unitId) return [];
   const idStr = String(unitId);
   const current = getRecentlyViewedIds().filter((id) => id !== idStr);
-  const updated = [idStr, ...current].slice(0, 6); // يحتفظ بآخر 6 وحدات فقط
+  const updated = [idStr, ...current].slice(0, 6);
   localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
   return updated;
 }

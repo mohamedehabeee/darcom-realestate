@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   X,
   Heart,
@@ -13,6 +13,9 @@ import {
   MessageCircle,
   ShieldCheck,
   Bell,
+  ChevronLeft,
+  ChevronRight,
+  Images,
 } from 'lucide-react';
 import PriceAlertModal from './PriceAlertModal';
 
@@ -32,14 +35,41 @@ export default function UnitDetails({
   if (!unit) return null;
 
   const gallery = useMemo(() => {
-    const list = Array.isArray(unit.gallery) && unit.gallery.length ? unit.gallery : [unit.image];
-    return list.filter(Boolean);
+    const raw = [
+      ...(unit.image ? [unit.image] : []),
+      ...(Array.isArray(unit.gallery) ? unit.gallery : []),
+    ];
+    const unique = [...new Set(raw.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean))];
+    return unique.length ? unique : [FALLBACK_IMAGE];
   }, [unit]);
 
-  const [activeImg, setActiveImg] = useState(gallery[0] || FALLBACK_IMAGE);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [downPct, setDownPct] = useState(Number(unit.downPaymentPercent ?? 15));
   const [years, setYears] = useState(Math.max(1, Number(unit.installmentYears ?? 7)));
   const [showPriceAlert, setShowPriceAlert] = useState(false);
+
+  // Keep image index and simulator in sync if unit changes or updates live
+  useEffect(() => {
+    setActiveIndex(0);
+    setDownPct(Number(unit.downPaymentPercent ?? 15));
+    setYears(Math.max(1, Number(unit.installmentYears ?? 7)));
+  }, [unit.id]);
+
+  useEffect(() => {
+    if (activeIndex >= gallery.length) {
+      setActiveIndex(0);
+    }
+  }, [gallery.length, activeIndex]);
+
+  const activeImg = gallery[activeIndex] || FALLBACK_IMAGE;
+
+  const handlePrevImage = () => {
+    setActiveIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
+  };
+
+  const handleNextImage = () => {
+    setActiveIndex((prev) => (prev + 1) % gallery.length);
+  };
 
   const price = Number(unit.price || 0);
   const area = Math.max(1, Number(unit.area || 1));
@@ -114,26 +144,55 @@ export default function UnitDetails({
         {/* Main Image & Thumbnails */}
         <div className="p-5 sm:p-6 space-y-6">
           <div className="space-y-3">
-            <div className="relative h-64 sm:h-96 w-full overflow-hidden bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+            <div className="relative h-64 sm:h-96 w-full overflow-hidden bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 group">
               <img
-                src={activeImg || FALLBACK_IMAGE}
+                src={activeImg}
                 alt={unit.title}
                 onError={(e) => {
                   e.currentTarget.src = FALLBACK_IMAGE;
                 }}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-all duration-300"
               />
+
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrevImage}
+                    aria-label="Previous photo"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-[#C59B27] text-white hover:text-[#111111] transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleNextImage}
+                    aria-label="Next photo"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/60 hover:bg-[#C59B27] text-white hover:text-[#111111] transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+
+                  <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/70 text-white text-xs font-semibold inline-flex items-center gap-1.5">
+                    <Images className="w-3.5 h-3.5 text-[#C59B27]" />
+                    <span>
+                      {activeIndex + 1} / {gallery.length}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {gallery.length > 1 && (
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {gallery.map((imgUrl, idx) => (
                   <button
-                    key={idx}
+                    key={`${imgUrl}-${idx}`}
                     type="button"
-                    onClick={() => setActiveImg(imgUrl)}
+                    onClick={() => setActiveIndex(idx)}
                     className={`w-20 h-14 shrink-0 overflow-hidden border-2 cursor-pointer transition-all ${
-                      activeImg === imgUrl
+                      activeIndex === idx
                         ? 'border-[#C59B27] scale-105'
                         : 'border-transparent opacity-65 hover:opacity-100'
                     }`}
