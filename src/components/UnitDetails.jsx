@@ -39,7 +39,9 @@ export default function UnitDetails({
       ...(unit.image ? [unit.image] : []),
       ...(Array.isArray(unit.gallery) ? unit.gallery : []),
     ];
-    const unique = [...new Set(raw.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean))];
+    const unique = [
+      ...new Set(raw.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean)),
+    ];
     return unique.length ? unique : [FALLBACK_IMAGE];
   }, [unit]);
 
@@ -84,11 +86,69 @@ export default function UnitDetails({
     return { downAmount, remaining, monthly, quarterly };
   }, [price, downPct, years]);
 
+  const fmt = (n) => new Intl.NumberFormat('en-EG').format(n);
   const whatsappNumber = (siteSettings?.whatsapp || '201065347544').replace(/\D/g, '');
   const advisorPhone = siteSettings?.phone || '+20 106 534 7544';
-  const whatsappText = encodeURIComponent(
-    `Hello DarCom Advisory, I am interested in "${unit.title}" in ${unit.compound} (${unit.city}) listed at ${new Intl.NumberFormat('en-EG').format(price)} EGP.`
-  );
+
+  const whatsappMessage = useMemo(() => {
+    if (isAr) {
+      const lines = [
+        'مرحباً فريق *DarCom* العقاري، أنا مهتم بالعقار التالي:',
+        '',
+        `🏠 *العقار:* ${unit.title}`,
+        `📍 *الموقع:* ${unit.compound} - ${unit.city}`,
+        `🏷️ *النوع / الغرض:* ${unit.type} (${unit.purpose === 'Rent' ? 'للإيجار' : 'للبيع'})`,
+        `📐 *المساحة:* ${unit.area} م²`,
+        `🛏️ *الغرف والحمامات:* ${unit.bedrooms} غرف | ${unit.bathrooms} حمام`,
+        `📅 *الاستلام:* ${unit.delivery || 'استلام فوري'}`,
+        `💰 *السعر:* ${fmt(price)} ج.م${unit.purpose === 'Rent' ? ' / شهرياً' : ''}`,
+      ];
+
+      if (unit.purpose === 'Buy') {
+        lines.push(
+          `📊 *متوسط سعر المتر:* ${fmt(pricePerSqm)} ج.م / م²`,
+          '',
+          '*خطة السداد المختارة من الحاسبة:*',
+          `• المقدم (${downPct}%): ${fmt(installmentPlan.downAmount)} ج.م`,
+          `• مدة التقسيط: ${years} سنوات`,
+          `• القسط الشهري التقديري: ${fmt(installmentPlan.monthly)} ج.م`,
+          `• القسط الربع سنوي التقديري: ${fmt(installmentPlan.quarterly)} ج.م`
+        );
+      }
+
+      lines.push('', 'أرجو التواصل معي لتفاصيل أكتر وحجز موعد للمعاينة.');
+      return lines.join('\n');
+    }
+
+    const lines = [
+      'Hello *DarCom Advisory*, I am interested in the following property:',
+      '',
+      `🏠 *Property:* ${unit.title}`,
+      `📍 *Location:* ${unit.compound}, ${unit.city}`,
+      `🏷️ *Type / Purpose:* ${unit.type} (${unit.purpose === 'Rent' ? 'For Rent' : 'For Sale'})`,
+      `📐 *Built Area:* ${unit.area} m²`,
+      `🛏️ *Specs:* ${unit.bedrooms} Bedrooms | ${unit.bathrooms} Bathrooms`,
+      `📅 *Delivery:* ${unit.delivery || 'Ready to Move'}`,
+      `💰 *Price:* ${fmt(price)} EGP${unit.purpose === 'Rent' ? ' / month' : ''}`,
+    ];
+
+    if (unit.purpose === 'Buy') {
+      lines.push(
+        `📊 *Avg. Price/m²:* ${fmt(pricePerSqm)} EGP / m²`,
+        '',
+        '*Selected Payment Plan:*',
+        `• Down Payment (${downPct}%): ${fmt(installmentPlan.downAmount)} EGP`,
+        `• Duration: ${years} Years`,
+        `• Est. Monthly: ${fmt(installmentPlan.monthly)} EGP`,
+        `• Est. Quarterly: ${fmt(installmentPlan.quarterly)} EGP`
+      );
+    }
+
+    lines.push('', 'Please contact me with full details and to schedule a private viewing.');
+    return lines.join('\n');
+  }, [unit, isAr, price, pricePerSqm, downPct, years, installmentPlan]);
+
+  const whatsappText = encodeURIComponent(whatsappMessage);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
@@ -227,7 +287,7 @@ export default function UnitDetails({
 
             <div className="text-start sm:text-end">
               <p className="text-2xl sm:text-3xl font-bold text-[#111111] dark:text-white">
-                {new Intl.NumberFormat('en-EG').format(price)} EGP
+                {fmt(price)} EGP
                 {unit.purpose === 'Rent' && (
                   <span className="text-xs font-normal text-[#111111]/60 dark:text-white/60">
                     {' '}
@@ -237,7 +297,7 @@ export default function UnitDetails({
               </p>
               {unit.purpose === 'Buy' && (
                 <p className="text-xs text-[#C59B27] font-semibold mt-0.5">
-                  Avg. {new Intl.NumberFormat('en-EG').format(pricePerSqm)} EGP / m²
+                  Avg. {fmt(pricePerSqm)} EGP / m²
                 </p>
               )}
             </div>
@@ -338,7 +398,7 @@ export default function UnitDetails({
                       <div className="flex justify-between font-semibold mb-1">
                         <span>Down Payment ({downPct}%)</span>
                         <span className="text-[#C59B27]">
-                          {new Intl.NumberFormat('en-EG').format(installmentPlan.downAmount)} EGP
+                          {fmt(installmentPlan.downAmount)} EGP
                         </span>
                       </div>
                       <input
@@ -375,7 +435,7 @@ export default function UnitDetails({
                         Est. Monthly
                       </span>
                       <span className="text-lg font-bold text-[#111111] dark:text-white">
-                        {new Intl.NumberFormat('en-EG').format(installmentPlan.monthly)} EGP
+                        {fmt(installmentPlan.monthly)} EGP
                       </span>
                     </div>
                     <div className="flex items-baseline justify-between text-xs border-t border-black/10 dark:border-white/10 pt-2">
@@ -383,7 +443,7 @@ export default function UnitDetails({
                         Est. Quarterly
                       </span>
                       <span className="font-semibold text-[#C59B27]">
-                        {new Intl.NumberFormat('en-EG').format(installmentPlan.quarterly)} EGP
+                        {fmt(installmentPlan.quarterly)} EGP
                       </span>
                     </div>
                   </div>
@@ -391,7 +451,7 @@ export default function UnitDetails({
               ) : (
                 <div className="p-4 bg-white dark:bg-[#161616] border border-black/10 dark:border-white/10 text-xs space-y-2">
                   <p className="font-semibold text-[#111111] dark:text-white">
-                    Monthly Rent: {new Intl.NumberFormat('en-EG').format(price)} EGP
+                    Monthly Rent: {fmt(price)} EGP
                   </p>
                   <p className="text-[#111111]/65 dark:text-white/65">
                     Includes compound security & maintenance access. Contact our leasing desk for contract duration options.
