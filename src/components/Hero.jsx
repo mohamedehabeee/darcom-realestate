@@ -12,9 +12,9 @@ export default function Hero({ siteSettings, onBrowseClick }) {
 
   return (
     <section className="relative border-b border-black/10 dark:border-white/10 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 lg:py-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
         {/* Left Column: Dynamic Copy & CTA */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-5 space-y-6">
           <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-[#C59B27] font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#C59B27]" />
             <span>{heroBadge}</span>
@@ -74,7 +74,7 @@ export default function Hero({ siteSettings, onBrowseClick }) {
         </div>
 
         {/* Right Column: Interactive 3D Architectural Villa */}
-        <div className="lg:col-span-6">
+        <div className="lg:col-span-7">
           <Villa3DViewer />
         </div>
       </div>
