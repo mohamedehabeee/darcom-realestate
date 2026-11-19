@@ -23,6 +23,7 @@ import {
   Star,
   Images,
   ImagePlus,
+  Bell,
 } from 'lucide-react';
 import { uploadPropertyImages } from '../services/realEstateService';
 
@@ -57,11 +58,20 @@ function fmtCompact(num) {
   return `${num} EGP`;
 }
 
+function formatWhatsAppPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('20')) return digits;
+  if (digits.startsWith('0')) return `2${digits}`;
+  return `20${digits}`;
+}
+
 export default function AdminDashboard({
   units,
   bookings,
   clients = [],
   subscribers = [],
+  priceAlerts = [],
   activityLogs = [],
   siteSettings,
   onAddUnit,
@@ -72,6 +82,8 @@ export default function AdminDashboard({
   onUpdateBookingStatus,
   onDeleteBooking,
   onDeleteSubscriber,
+  onUpdatePriceAlertStatus,
+  onDeletePriceAlert,
   onSaveSiteSettings,
 }) {
   const [tab, setTab] = useState('units');
@@ -399,6 +411,7 @@ export default function AdminDashboard({
               {[
                 { id: 'units', label: `Inventory (${units.length})` },
                 { id: 'bookings', label: `Viewings (${bookings.length})` },
+                { id: 'alerts', label: `Price Alerts (${priceAlerts.length})`, icon: Bell },
                 { id: 'clients', label: `Clients (${clients.length})`, icon: Users },
                 { id: 'newsletter', label: `VIP Leads (${subscribers.length})`, icon: Mail },
                 { id: 'logs', label: `Audit Logs (${activityLogs.length})`, icon: Activity },
@@ -478,7 +491,7 @@ export default function AdminDashboard({
                 {stats.bkRate}% Confirmed
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {stats.confBk} of {bookings.length} Requests • {clients.length} Clients
+                {stats.confBk} of {bookings.length} Requests • {priceAlerts.length} Alerts
               </p>
             </div>
             <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400">
@@ -1064,6 +1077,104 @@ export default function AdminDashboard({
             </div>
           )}
 
+          {tab === 'alerts' && (
+            <div className="overflow-x-auto">
+              {priceAlerts.length === 0 ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No price drop alerts requested yet.
+                </p>
+              ) : (
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-400">
+                      <th className="py-3 pr-4">Client</th>
+                      <th className="py-3 px-4">Phone</th>
+                      <th className="py-3 px-4">Property</th>
+                      <th className="py-3 px-4">Current / Target Price</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 pl-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceAlerts.map((alert) => {
+                      const waPhone = formatWhatsAppPhone(alert.phone);
+                      const waMsg = encodeURIComponent(
+                        `Hello ${alert.name}, this is DarCom Advisory regarding your price drop alert for "${alert.unit_title}".`
+                      );
+                      return (
+                        <tr
+                          key={alert.id}
+                          className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                        >
+                          <td className="py-3 pr-4">
+                            <div className="font-semibold">{alert.name}</div>
+                            {alert.email && (
+                              <div className="text-[11px] text-slate-400">{alert.email}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-indigo-600 dark:text-indigo-400">
+                            {alert.phone}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                            {alert.unit_title}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-xs font-semibold">
+                              Now: {new Intl.NumberFormat('en-EG').format(Number(alert.current_price || 0))} EGP
+                            </div>
+                            <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                              Target:{' '}
+                              {alert.target_price
+                                ? `${new Intl.NumberFormat('en-EG').format(Number(alert.target_price))} EGP`
+                                : 'Any Price Drop'}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={alert.status || 'Active'}
+                              onChange={(e) => onUpdatePriceAlertStatus?.(alert.id, e.target.value)}
+                              className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${
+                                alert.status === 'Notified'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                                  : alert.status === 'Closed'
+                                  ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                                  : 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                              }`}
+                            >
+                              <option value="Active">Active</option>
+                              <option value="Notified">Notified</option>
+                              <option value="Closed">Closed</option>
+                            </select>
+                          </td>
+                          <td className="py-3 pl-4 text-right">
+                            <div className="inline-flex items-center gap-2">
+                              {waPhone && (
+                                <a
+                                  href={`https://wa.me/${waPhone}?text=${waMsg}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex px-2.5 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                              <button
+                                onClick={() => onDeletePriceAlert?.(alert.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
           {tab === 'clients' && (
             <div className="overflow-x-auto">
               {clients.length === 0 ? (
@@ -1093,7 +1204,7 @@ export default function AdminDashboard({
                         <td className="py-3 pl-4 text-right">
                           {c.phone && (
                             <a
-                              href={`https://wa.me/2${c.phone}`}
+                              href={`https://wa.me/${formatWhatsAppPhone(c.phone)}`}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex px-3 py-1 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"

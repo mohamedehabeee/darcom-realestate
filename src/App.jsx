@@ -29,6 +29,9 @@ import {
   getRecentlyViewedIds,
   addRecentlyViewedId,
   clearRecentlyViewedIds,
+  fetchPriceAlerts,
+  updatePriceAlertStatus,
+  deletePriceAlert,
 } from './services/realEstateService';
 import IntroScreen from './components/IntroScreen';
 import Navbar from './components/Navbar';
@@ -86,6 +89,7 @@ export default function App() {
     isSecretVaultUrl() ? 'admin' : 'home'
   );
   const [listingLayout, setListingLayout] = useState('grid');
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const [units, setUnits] = useState([]);
   const [savedIds, setSavedIds] = useState(() => getSavedIds().map(String));
@@ -94,6 +98,7 @@ export default function App() {
   const [bookings, setBookings] = useState([]);
   const [clients, setClients] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
+  const [priceAlerts, setPriceAlerts] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [currentUser, setCurrentUser] = useState(null);
@@ -116,16 +121,32 @@ export default function App() {
     isAdminVerifiedRef.current = Boolean(currentUser?.role === 'admin' && mfaVerified);
   }, [currentUser, mfaVerified]);
 
+  // Gold Scroll Progress Bar tracker
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+      setScrollProgress(pct);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeView]);
+
   const loadAdminRecords = async () => {
-    const [loadedBookings, loadedClients, loadedSubs, loadedLogs] = await Promise.all([
-      getBookings(),
-      getRegisteredClients(),
-      getNewsletterSubscribers(),
-      getAdminActivityLogs(),
-    ]);
+    const [loadedBookings, loadedClients, loadedSubs, loadedAlerts, loadedLogs] =
+      await Promise.all([
+        getBookings(),
+        getRegisteredClients(),
+        getNewsletterSubscribers(),
+        fetchPriceAlerts().catch(() => []),
+        getAdminActivityLogs(),
+      ]);
     setBookings(loadedBookings);
     setClients(loadedClients);
     setSubscribers(loadedSubs);
+    setPriceAlerts(loadedAlerts);
     setActivityLogs(loadedLogs);
   };
 
@@ -213,6 +234,15 @@ export default function App() {
           setBookings(await getBookings());
         }
       })
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'price_alerts' },
+        async () => {
+          if (isAdminVerifiedRef.current) {
+            setPriceAlerts(await fetchPriceAlerts().catch(() => []));
+          }
+        }
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'admin_activity_logs' },
@@ -403,6 +433,16 @@ export default function App() {
     setSubscribers(updated);
   };
 
+  const handleUpdatePriceAlertStatus = async (id, status) => {
+    await updatePriceAlertStatus(id, status);
+    setPriceAlerts(await fetchPriceAlerts().catch(() => []));
+  };
+
+  const handleDeletePriceAlert = async (id) => {
+    await deletePriceAlert(id);
+    setPriceAlerts(await fetchPriceAlerts().catch(() => []));
+  };
+
   const handleSaveSiteSettings = async (newSettings) => {
     const updated = await updateSiteSettings(newSettings);
     setSiteSettings(updated);
@@ -417,6 +457,7 @@ export default function App() {
     setBookings([]);
     setClients([]);
     setSubscribers([]);
+    setPriceAlerts([]);
     setActivityLogs([]);
     if (activeView === 'admin') {
       setActiveView('home');
@@ -427,6 +468,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-[#111111] text-[#111111] dark:text-white transition-colors">
+      {/* Gold Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 z-[60] h-[2.5px] bg-transparent pointer-events-none">
+        <div
+          className="h-full bg-gradient-to-r from-[#C59B27] via-[#f0cf65] to-[#C59B27] transition-[width] duration-75"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
+
       {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
 
       <Navbar
@@ -602,6 +651,7 @@ export default function App() {
               bookings={bookings}
               clients={clients}
               subscribers={subscribers}
+              priceAlerts={priceAlerts}
               activityLogs={activityLogs}
               siteSettings={siteSettings}
               onAddUnit={handleAddUnit}
@@ -612,6 +662,8 @@ export default function App() {
               onUpdateBookingStatus={handleUpdateBookingStatus}
               onDeleteBooking={handleDeleteBooking}
               onDeleteSubscriber={handleDeleteSubscriber}
+              onUpdatePriceAlertStatus={handleUpdatePriceAlertStatus}
+              onDeletePriceAlert={handleDeletePriceAlert}
               onSaveSiteSettings={handleSaveSiteSettings}
             />
           ) : (
