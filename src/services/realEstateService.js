@@ -680,3 +680,83 @@ export async function verifyAdminMfa(factorId, code) {
   if (verifyErr) throw verifyErr;
   return true;
 }
+// ==========================================
+// 1. دوال تنبيهات نزول السعر (Price Alerts)
+// ==========================================
+export async function createPriceAlert(alertData) {
+  const { data, error } = await supabase
+    .from('price_alerts')
+    .insert([
+      {
+        unit_id: String(alertData.unitId),
+        unit_title: alertData.unitTitle,
+        current_price: Number(alertData.currentPrice) || 0,
+        target_price: alertData.targetPrice ? Number(alertData.targetPrice) : null,
+        user_id: alertData.userId || null,
+        name: alertData.name.trim(),
+        phone: alertData.phone.trim(),
+        email: alertData.email?.trim() || null,
+        status: 'Active',
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchPriceAlerts() {
+  const { data, error } = await supabase
+    .from('price_alerts')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updatePriceAlertStatus(id, status) {
+  const { error } = await supabase
+    .from('price_alerts')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function deletePriceAlert(id) {
+  const { error } = await supabase
+    .from('price_alerts')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// ==========================================
+// 2. دوال المشاهدات الأخيرة (Recently Viewed)
+// ==========================================
+const RECENTLY_VIEWED_KEY = 'darcom_recently_viewed';
+
+export function getRecentlyViewedIds() {
+  try {
+    const raw = localStorage.getItem(RECENTLY_VIEWED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addRecentlyViewedId(unitId) {
+  if (!unitId) return [];
+  const idStr = String(unitId);
+  const current = getRecentlyViewedIds().filter((id) => id !== idStr);
+  const updated = [idStr, ...current].slice(0, 6); // يحتفظ بآخر 6 وحدات فقط
+  localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+export function clearRecentlyViewedIds() {
+  localStorage.removeItem(RECENTLY_VIEWED_KEY);
+}

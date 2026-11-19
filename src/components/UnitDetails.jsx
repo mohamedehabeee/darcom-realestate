@@ -12,7 +12,9 @@ import {
   Phone,
   MessageCircle,
   ShieldCheck,
+  Bell,
 } from 'lucide-react';
+import PriceAlertModal from './PriceAlertModal';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
@@ -20,6 +22,8 @@ const FALLBACK_IMAGE =
 export default function UnitDetails({
   unit,
   siteSettings,
+  currentUser,
+  isAr = false,
   isSaved,
   onToggleSave,
   onClose,
@@ -35,6 +39,7 @@ export default function UnitDetails({
   const [activeImg, setActiveImg] = useState(gallery[0] || FALLBACK_IMAGE);
   const [downPct, setDownPct] = useState(Number(unit.downPaymentPercent ?? 15));
   const [years, setYears] = useState(Math.max(1, Number(unit.installmentYears ?? 7)));
+  const [showPriceAlert, setShowPriceAlert] = useState(false);
 
   const price = Number(unit.price || 0);
   const area = Math.max(1, Number(unit.area || 1));
@@ -346,6 +351,15 @@ export default function UnitDetails({
                   {unit.status === 'Sold' ? 'Property Sold' : 'Schedule Private Viewing'}
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setShowPriceAlert(true)}
+                  className="w-full py-2.5 px-3 border border-[#C59B27]/60 text-[#C59B27] hover:bg-[#C59B27]/10 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'بلّغني لو السعر نزل' : 'Notify Me on Price Drop'}</span>
+                </button>
+
                 <div className="grid grid-cols-2 gap-2">
                   <a
                     href={`https://wa.me/${whatsappNumber}?text=${whatsappText}`}
@@ -370,6 +384,15 @@ export default function UnitDetails({
           </div>
         </div>
       </div>
+
+      {showPriceAlert && (
+        <PriceAlertModal
+          unit={unit}
+          user={currentUser}
+          isAr={isAr}
+          onClose={() => setShowPriceAlert(false)}
+        />
+      )}
     </div>
   );
 }

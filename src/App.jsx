@@ -26,6 +26,9 @@ import {
   getCurrentUser,
   getMfaStatus,
   logoutUser,
+  getRecentlyViewedIds,
+  addRecentlyViewedId,
+  clearRecentlyViewedIds,
 } from './services/realEstateService';
 import IntroScreen from './components/IntroScreen';
 import Navbar from './components/Navbar';
@@ -40,6 +43,7 @@ import WhyDarcomSection from './components/WhyDarcomSection';
 import FeaturedSliderSection from './components/FeaturedSliderSection';
 import TestimonialsSection from './components/TestimonialsSection';
 import FaqSection from './components/FaqSection';
+import RecentlyViewedSection from './components/RecentlyViewedSection';
 import ScrollReveal from './components/ScrollReveal';
 import UnitDetails from './components/UnitDetails';
 import CompareModal from './components/CompareModal';
@@ -85,6 +89,7 @@ export default function App() {
 
   const [units, setUnits] = useState([]);
   const [savedIds, setSavedIds] = useState(() => getSavedIds().map(String));
+  const [recentIds, setRecentIds] = useState(() => getRecentlyViewedIds());
   const [compareIds, setCompareIds] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [clients, setClients] = useState([]);
@@ -276,6 +281,13 @@ export default function App() {
     currentUser.role !== 'admin' &&
     !currentUser.phone &&
     !showAuth;
+
+  const handleSelectUnit = (unit) => {
+    setSelectedUnit(unit);
+    if (unit?.id) {
+      setRecentIds(addRecentlyViewedId(unit.id));
+    }
+  };
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -510,7 +522,7 @@ export default function App() {
                 </div>
               ) : listingLayout === 'map' ? (
                 <ScrollReveal>
-                  <PropertyMap units={filteredUnits} onSelectUnit={setSelectedUnit} />
+                  <PropertyMap units={filteredUnits} onSelectUnit={handleSelectUnit} />
                 </ScrollReveal>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -522,7 +534,7 @@ export default function App() {
                         isCompared={compareIds.includes(String(unit.id))}
                         onToggleSave={handleToggleSave}
                         onToggleCompare={handleToggleCompare}
-                        onSelect={setSelectedUnit}
+                        onSelect={handleSelectUnit}
                       />
                     </ScrollReveal>
                   ))}
@@ -548,13 +560,26 @@ export default function App() {
 
             {siteSettings?.showFeaturedSlider !== false && (
               <ScrollReveal>
-                <FeaturedSliderSection units={units} onSelectUnit={setSelectedUnit} />
+                <FeaturedSliderSection units={units} onSelectUnit={handleSelectUnit} />
               </ScrollReveal>
             )}
 
             <TestimonialsSection lang={lang} />
 
             <FaqSection lang={lang} />
+
+            <ScrollReveal>
+              <RecentlyViewedSection
+                units={units}
+                recentIds={recentIds}
+                isAr={isAr}
+                onSelectUnit={handleSelectUnit}
+                onClearHistory={() => {
+                  clearRecentlyViewedIds();
+                  setRecentIds([]);
+                }}
+              />
+            </ScrollReveal>
           </>
         )}
 
@@ -565,7 +590,7 @@ export default function App() {
             compareIds={compareIds}
             onToggleSave={handleToggleSave}
             onToggleCompare={handleToggleCompare}
-            onSelectUnit={setSelectedUnit}
+            onSelectUnit={handleSelectUnit}
             onBackHome={() => setActiveView('home')}
           />
         )}
@@ -609,6 +634,8 @@ export default function App() {
         <UnitDetails
           unit={selectedUnit}
           siteSettings={siteSettings}
+          currentUser={currentUser}
+          isAr={isAr}
           isSaved={savedIds.includes(String(selectedUnit.id))}
           onToggleSave={handleToggleSave}
           onClose={() => setSelectedUnit(null)}
