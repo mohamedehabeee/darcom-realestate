@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGrid, Map as MapIcon } from 'lucide-react';
+import {
+  LayoutGrid,
+  Map as MapIcon,
+  ShieldCheck,
+  ExternalLink,
+  LogOut,
+  Sun,
+  Moon,
+  Languages,
+} from 'lucide-react';
 import { supabase } from './services/supabaseClient';
 import {
   DEFAULT_SITE_SETTINGS,
@@ -220,6 +229,16 @@ export default function App() {
           const synced = await syncSavedUnitsWithCloud();
           setSavedIds(synced.map(String));
         }
+        // فتح بوابة الأدمن المستقلة تلقائياً فور تسجيل دخول الأدمن
+        if (user?.role === 'admin') {
+          setShowIntro(false);
+          const mfa = await getMfaStatus();
+          if (mfa.currentLevel === 'aal2') {
+            setMfaVerified(true);
+            await loadAdminRecords();
+          }
+          setActiveView('admin');
+        }
         if (isOAuthCallbackUrl()) {
           window.history.replaceState({}, '', '/');
         }
@@ -234,6 +253,9 @@ export default function App() {
       .channel('darcom-live-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, async () => {
         setUnits(await getUnits());
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, async () => {
+        setSiteSettings(await getSiteSettings());
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async (payload) => {
         if (isAdminVerifiedRef.current) {
@@ -320,7 +342,6 @@ export default function App() {
     [units, compareIds]
   );
 
-  // Normalized units with string IDs so SavedUnits page works with both UUIDs and mock numbers
   const normalizedUnits = useMemo(
     () => units.map((u) => ({ ...u, id: String(u.id) })),
     [units]
@@ -328,6 +349,7 @@ export default function App() {
 
   const needsPhonePrompt =
     !showIntro &&
+    activeView !== 'admin' &&
     currentUser &&
     currentUser.role !== 'admin' &&
     !currentUser.phone &&
@@ -487,6 +509,115 @@ export default function App() {
 
   const isAr = lang === 'ar';
 
+  // =========================================================================
+  // بوابة الأدمن المستقلة بالكامل (تفتح كأنها موقع تاني خالص بدون Navbar/Footer الزوار)
+  // =========================================================================
+  if (activeView === 'admin') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-[#0D0D0F] text-[#111111] dark:text-white transition-colors">
+        {/* Dedicated Admin Studio Topbar */}
+        <header className="sticky top-0 z-50 border-b border-black/10 dark:border-white/10 bg-[#111111] text-white px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#C59B27] text-[#111111] flex items-center justify-center font-bold">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold tracking-[0.18em] uppercase leading-none">
+                DARCOM <span className="text-[#C59B27]">STUDIO</span>
+              </p>
+              <p className="text-[11px] text-white/60 mt-0.5">
+                {isAr ? 'نظام الإدارة والتحكم الكامل في الموقع' : 'Full Website CMS & Control Portal'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setLang((prev) => (prev === 'en' ? 'ar' : 'en'))}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-white/15 hover:border-[#C59B27] text-white/80 hover:text-white cursor-pointer transition-colors"
+              title={isAr ? 'تغيير اللغة' : 'Switch Language'}
+            >
+              <Languages className="w-3.5 h-3.5" />
+              <span>{isAr ? 'EN' : 'عربي'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDarkMode((prev) => !prev)}
+              className="p-2 border border-white/15 hover:border-[#C59B27] text-white/80 hover:text-white cursor-pointer transition-colors"
+              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#C59B27] text-[#111111] hover:bg-[#d6ad3b] cursor-pointer transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>{isAr ? 'معاينة الموقع' : 'Live Site'}</span>
+            </button>
+
+            {currentUser && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-red-500/40 text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isAr ? 'خروج' : 'Sign Out'}</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Full-Screen Admin Workspace */}
+        <main className="flex-1 w-full">
+          {currentUser?.role === 'admin' && mfaVerified ? (
+            <AdminDashboard
+              units={units}
+              bookings={bookings}
+              clients={clients}
+              subscribers={subscribers}
+              priceAlerts={priceAlerts}
+              activityLogs={activityLogs}
+              siteSettings={siteSettings}
+              onAddUnit={handleAddUnit}
+              onUpdateUnit={handleUpdateUnit}
+              onUpdateUnitStatus={handleUpdateUnitStatus}
+              onDeleteUnit={handleDeleteUnit}
+              onResetUnits={handleResetUnits}
+              onUpdateBookingStatus={handleUpdateBookingStatus}
+              onDeleteBooking={handleDeleteBooking}
+              onDeleteSubscriber={handleDeleteSubscriber}
+              onUpdatePriceAlertStatus={handleUpdatePriceAlertStatus}
+              onDeletePriceAlert={handleDeletePriceAlert}
+              onSaveSiteSettings={handleSaveSiteSettings}
+            />
+          ) : (
+            <AdminMfaGate
+              currentUser={currentUser}
+              onAdminAuthenticated={(user) => setCurrentUser(user)}
+              onVerified={async () => {
+                setMfaVerified(true);
+                await loadAdminRecords();
+              }}
+              onCancel={() => setActiveView('home')}
+            />
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // واجهة الموقع الرئيسية للزوار
+  // =========================================================================
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] dark:bg-[#111111] text-[#111111] dark:text-white transition-colors">
       {/* Gold Scroll Progress Bar */}
@@ -664,44 +795,24 @@ export default function App() {
             onBackHome={() => setActiveView('home')}
           />
         )}
-
-        {activeView === 'admin' && (
-          currentUser?.role === 'admin' && mfaVerified ? (
-            <AdminDashboard
-              units={units}
-              bookings={bookings}
-              clients={clients}
-              subscribers={subscribers}
-              priceAlerts={priceAlerts}
-              activityLogs={activityLogs}
-              siteSettings={siteSettings}
-              onAddUnit={handleAddUnit}
-              onUpdateUnit={handleUpdateUnit}
-              onUpdateUnitStatus={handleUpdateUnitStatus}
-              onDeleteUnit={handleDeleteUnit}
-              onResetUnits={handleResetUnits}
-              onUpdateBookingStatus={handleUpdateBookingStatus}
-              onDeleteBooking={handleDeleteBooking}
-              onDeleteSubscriber={handleDeleteSubscriber}
-              onUpdatePriceAlertStatus={handleUpdatePriceAlertStatus}
-              onDeletePriceAlert={handleDeletePriceAlert}
-              onSaveSiteSettings={handleSaveSiteSettings}
-            />
-          ) : (
-            <AdminMfaGate
-              currentUser={currentUser}
-              onAdminAuthenticated={(user) => setCurrentUser(user)}
-              onVerified={async () => {
-                setMfaVerified(true);
-                await loadAdminRecords();
-              }}
-              onCancel={() => setActiveView('home')}
-            />
-          )
-        )}
       </main>
 
       <Footer siteSettings={siteSettings} onNavigate={handleNavigate} />
+
+      {/* زرار عائم للأدمن للرجوع لبوابة التحكم المستقلة بضغطة واحدة */}
+      {currentUser?.role === 'admin' && (
+        <button
+          type="button"
+          onClick={() => {
+            setActiveView('admin');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="fixed bottom-5 right-5 z-[70] inline-flex items-center gap-2 px-4 py-3 bg-[#111111] text-[#C59B27] border border-[#C59B27] shadow-2xl text-xs font-bold uppercase tracking-wider hover:bg-[#C59B27] hover:text-[#111111] cursor-pointer transition-all"
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>{isAr ? 'فتح لوحة التحكم' : 'Open Admin Studio'}</span>
+        </button>
+      )}
 
       {selectedUnit && (
         <UnitDetails
@@ -747,6 +858,7 @@ export default function App() {
               setSavedIds(synced.map(String));
             }
             if (user?.role === 'admin') {
+              setShowIntro(false);
               setActiveView('admin');
             }
           }}
